@@ -1,22 +1,46 @@
 {
   "name": "koishi-plugin-pjsk-pptr",
-  "description": "",
-  "version": "0.0.1",
+  "description": "通过 puppeteer 实现的 Project SEKAI 表情包生成器。",
+  "version": "0.0.3",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
     "lib",
     "dist"
   ],
+  "koishi": {
+    "hidden": true,
+    "service": {
+      "required": [
+        "puppeteer"
+      ]
+    }
+  },
   "license": "MIT",
+  "author": "Nawyjx <3373167460@qq.com>",
+  "homepage": "https://www.npmjs.com/package/koishi-plugin-pjsk-pptr?activeTab=readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/araea/koishi-plugin-pjsk-pptr.git"
+  },
   "scripts": {},
   "keywords": [
     "chatbot",
     "koishi",
-    "plugin"
+    "plugin",
+    "pjsk",
+    "表情包",
+    "Project Sekai Stickers",
+    "啤酒烧烤",
+    "初音未来",
+    "生成器",
+    "Stickers",
+    "puppeteer"
   ],
-  "devDependencies": {},
   "peerDependencies": {
     "koishi": "^4.17.3"
+  },
+  "devDependencies": {
+    "koishi-plugin-puppeteer": "^3.8.3"
   }
 }

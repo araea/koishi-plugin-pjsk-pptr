@@ -29,7 +29,7 @@ npm i koishi-plugin-pjsk-stickers-maker-pptr
 - `pjsk.列表` - 显示可用的表情包列表
 - `pjsk.绘制 [inputText:text]` - 将自定义文本渲染到随机或指定的表情包中，使用 / 可以换行。
   - `-n` - 指定表情包 ID
-  - `-y` -指定文本垂直位置
+  - `-y` - 指定文本垂直位置
   - `-x` - 指定文本水平位置
   - `-r` - 指定文本旋转角度
   - `-s` - 指定文本字体大小

@@ -17,16 +17,15 @@ export const usage = `## 🎮 使用
 
 ## 📝 命令
 
-- \`pjsk.教学引导\` - 循环教学引导绘制
 - \`pjsk.列表\` - 显示可用的表情包列表
 - \`pjsk.绘制 [inputText:text]\` - 将自定义文本渲染到随机或指定的表情包中，使用 / 可以换行。
   - \`-n\` - 指定表情包 ID
-  - \`-y\` -指定文本垂直位置
+  - \`-y\` - 指定文本垂直位置
   - \`-x\` - 指定文本水平位置
   - \`-r\` - 指定文本旋转角度
   - \`-s\` - 指定文本字体大小
   - \`-c\` - 是否启用文本曲线
-  - \`-l\` - 指定文本行间距`
+  - \`--space\` - 指定文本行间距`
 
 const logger = new Logger('PJSK')
 
@@ -154,8 +153,8 @@ export function apply(ctx: Context, config: Config) {
     .option('positionX', '-x [positionX:number] 文本的水平位置')
     .option('rotate', '-r [rotate:number] 文本的旋转角度')
     .option('fontSize', '-s [fontSize:number] 文本字体的大小')
-    .option('curve', '-c [curve:boolean] 是否启用文本曲线')
     .option('spaceSize', '-l [spaceSize:number] 文本上下行间距')
+    .option('curve', '-c 是否启用文本曲线', {fallback:false})
     .action(async ({session, options}, inputText) => {
 
       // 表情包 ID 必须在 characters 的元素个数之内，即小于 characters.length，默认为随机
@@ -191,24 +190,57 @@ export function apply(ctx: Context, config: Config) {
 
       const curve = options.curve || false;
       const spaceSize = options.spaceSize || 18;
-      const specifiedX = options.positionX !== undefined ? options.positionX : x;
-      const specifiedY = options.positionY !== undefined ? options.positionY : y + 12;
+      let specifiedX = options.positionX !== undefined ? options.positionX : x;
+      let specifiedY = options.positionY !== undefined ? options.positionY : y + 12;
       const specifiedRotate = options.rotate !== undefined ? options.rotate : rotate;
       let specifiedFontSize = options.fontSize !== undefined ? options.fontSize : fontSize;
 
       if (config.isTextSizeAdaptationEnabled) {
         if (containsChinese(text)) {
           if (containsEnglishLetter(text) && text.length > 3) {
+            if (options.curve) {
+              if(text.length <= 5){
+                specifiedX -= 60
+                specifiedY += 260
+              } else {
+                specifiedX -= 60
+                specifiedY += 200
+              }
+
+            }
             const englishLetterCount = countEnglishLetters(text);
             specifiedFontSize = 278 / (text.length - englishLetterCount / 2) - 2;
           } else if (text.length > 3) {
+            if (options.curve) {
+              if (text.length <= 5) {
+                specifiedY += 150
+              } else {
+                specifiedY += 100
+              }
+
+            }
             specifiedFontSize = 278 / (text.length) - 12;
           } else {
+            if (options.curve) {
+              specifiedY += 200
+            }
             specifiedFontSize += 10 * (3 - text.length);
           }
         } else {
+          if (options.curve) {
+            if(text.length <= 5){
+              specifiedX -= 50
+              specifiedY += 380
+            } else {
+              specifiedX -= 50
+              specifiedY += 180
+            }
+          }
           specifiedFontSize = 278 / (text.length) + 10.5;
         }
+
+
+
       }
 
       interface Range {

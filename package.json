@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-pjsk-pptr",
   "description": "通过 puppeteer 实现的 Project SEKAI 表情包生成器。",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [

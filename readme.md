@@ -4,7 +4,7 @@
 
 ## 🎈 介绍
 
-这个 Koishi 插件通过 puppeteer 渲染 HTML 和 Canvas，实现了一个可以自定义文本并渲染到 Project SEKAI 表情包中的功能。
+通过 puppeteer 渲染 HTML 和 Canvas，实现了一个可以自定义文本并渲染初音未来 Project SEKAI 表情包的功能。
 
 ## 📦 安装
 
@@ -32,7 +32,7 @@ npm i koishi-plugin-pjsk-stickers-maker-pptr
   - `-y` - 指定文本垂直位置
   - `-x` - 指定文本水平位置
   - `-r` - 指定文本旋转角度
-  - `-s` - 指定文本字体大小
+  - `-s` - 指定文本字体大小（自适应时不生效）
   - `-c` - 是否启用文本曲线
   - `--space` - 指定文本行间距
 

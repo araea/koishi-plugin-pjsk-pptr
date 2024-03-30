@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-pjsk-pptr",
-  "description": "通过 puppeteer 实现的 Project SEKAI 表情包生成器，支持自动适应文本大小。",
-  "version": "0.0.9",
+  "description": "初音未来 Project SEKAI 表情包生成器，支持自动适应文本大小。",
+  "version": "1.0.0",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [

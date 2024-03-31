@@ -45,7 +45,7 @@ export interface Config {
 export const Config: Schema<Config> = Schema.intersect([
   Schema.object({
     isTextSizeAdaptationEnabled: Schema.boolean().default(true).description('是否启用文本大小自适应'),
-    retractDelay: Schema.number().min(0).default(0).description(`自动撤回等待的时间，单位是秒。值为 0 时不启用自动撤回功能。`),
+    retractDelay: Schema.number().min(0).default(0).description(`（暂不支持 QQ 官方机器人）自动撤回等待的时间，单位是秒。值为 0 时不启用自动撤回功能。`),
     isEnableQQOfficialRobotMarkdownTemplate: Schema.boolean().default(false).description(`是否启用 QQ 官方机器人的 Markdown 模板，带消息按钮。`),
   }),
   Schema.union([
@@ -119,7 +119,7 @@ export function apply(ctx: Context, config: Config) {
     rotate: 'integer',
   }, {primary: 'id', autoInc: true})
   // cl*
-  const isQQOfficialRobotMarkdownTemplateEnabled = config.isEnableQQOfficialRobotMarkdownTemplate && config.key !== '' && config.customTemplateId !== '' && config.key2 !== '' && config.key3 !== ''
+  const isQQOfficialRobotMarkdownTemplateEnabled = config.isEnableQQOfficialRobotMarkdownTemplate && config.key !== '' && config.customTemplateId !== ''
   const filePath = path.join(__dirname, 'emptyHtml.html').replace(/\\/g, '/');
   const characterNames = [
     'characterListAll',

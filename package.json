@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-pjsk-pptr",
   "description": "初音未来 Project SEKAI 表情包生成器，支持自动适应文本大小、QQ官方MD模板等。",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [

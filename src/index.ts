@@ -613,7 +613,9 @@ export function apply(ctx: Context, config: Config) {
       }
       const buffer = await draw(text, imgPath, specifiedX, specifiedY, specifiedRotate, specifiedFontSize, color, curve, spaceSize, angle)
       await sendMessage(session, h.image(buffer, 'image/png'), ``, 296, 256)
-      return await sendMessage(session, `🎉 表情包绘制完成！`, `修改文本 字体变大 字体变小 修改角色 行间距变大 行间距变小 随机角色 开启曲线 关闭曲线 随机绘制 文本上移 文本下移 自选绘制 文本左移 文本右移`)
+      if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
+        return await sendMessage(session, `🎉 表情包绘制完成！`, `修改文本 字体变大 字体变小 修改角色 行间距变大 行间距变小 随机角色 开启曲线 关闭曲线 随机绘制 文本上移 文本下移 自选绘制 文本左移 文本右移`)
+      }
     })
 
 

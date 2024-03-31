@@ -1,4 +1,4 @@
-import {Context, Logger, Schema, h} from 'koishi'
+import {Context, Logger, Schema, h, noop} from 'koishi'
 import {} from '@koishijs/plugin-help'
 import {} from 'koishi-plugin-puppeteer';
 import path from 'path';
@@ -89,6 +89,20 @@ interface Range {
   message: string;
 }
 
+interface Button {
+  render_data: {
+    label: string;
+    visited_label: string;
+    style: number;
+  };
+  action: {
+    type: number;
+    permission: { type: number };
+    data: string;
+    enter: boolean;
+  };
+}
+
 export function apply(ctx: Context, config: Config) {
   // tzb*
   ctx.model.extend('pjsk', {
@@ -149,35 +163,50 @@ export function apply(ctx: Context, config: Config) {
   // pjsk* h* bz*
   ctx.command('pjsk', '初音未来表情包生成帮助')
     .action(async ({session}) => {
+      if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
+        return await sendMessage(session, `🌸 初音未来表情包生成器 🌸
+😆 欢迎使用~ 祝您玩得开心！`, `表情包列表 随机绘制 自选绘制`)
+      }
       await session.execute(`pjsk -h`)
     })
   // lb*
   ctx.command('pjsk.列表', '表情列表指令引导')
     .action(async ({session}) => {
+      if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
+        return await sendMessage(session, `当前可查看的表情包列表如下：
+1. 全部
+2. 角色分类
+3. 指定角色 [角色序号或角色名]`, `全部 角色分类 指定角色`)
+      }
       // 提示当前可用的表情包列表
       return await sendMessage(session, `请使用以下指令查看表情包列表：
 > pjsk.列表.全部 - 查看全部表情包列表
 > pjsk.列表.角色分类 - 查看角色分类表情包列表
-> pjsk.列表.展开指定角色 &lt;角色序号或角色名&gt; - 查看指定角色表情包列表`)
+> pjsk.列表.展开指定角色 [角色序号或角色名] - 查看指定角色表情包列表`, ``)
     })
 
   // lb* qb*
   ctx.command('pjsk.列表.全部', '全部表情列表')
     .action(async ({session}) => {
       const buffer = fs.readFileSync(pjskListDir['pjskListForcharacterListAllDir']);
-      await sendMessage(session, h.image(buffer, 'image/jpeg'))
+      await sendMessage(session, h.image(buffer, 'image/jpeg'), ``, 863, 2245)
       await processUserInput(session)
     })
   // lb* js* fl*
   ctx.command('pjsk.列表.角色分类', '角色分类表情列表')
     .action(async ({session}) => {
       const buffer = fs.readFileSync(pjskListDir['pjskListForcharacterListWithIndexDir']);
-      await sendMessage(session, h.image(buffer, 'image/jpeg'))
+      await sendMessage(session, h.image(buffer, 'image/jpeg'), ``, 1570, 1637)
+      if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
+        await sendMessage(session, `查看指定角色的表情，请输入：
+- 角色序号，如：10
+- 角色名，如：emu`, `输入角色序号或名称`)
+      }
       const userInput = await session.prompt()
-      if (!userInput) return
+      if (!userInput) return isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq' ? await sendMessage(session, `输入无效或超时！`, ``) : noop()
       const character = getCharacterName(userInput);
       if (character === `无效的角色序号或角色名！` || character === `找不到角色图像！`) {
-        return
+        return isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq' ? await sendMessage(session, `无效的角色序号或角色名！`, `表情包列表 角色分类`) : noop()
       } else {
         await session.execute(`pjsk.列表.展开指定角色 ${character}`)
       }
@@ -187,9 +216,9 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({session}, character) => {
       const imageBuffer = getCharacterImageBuffer(character);
       if (imageBuffer === `无效的角色序号或角色名！` || imageBuffer === `找不到角色图像！`) {
-        return await sendMessage(session, imageBuffer)
+        return await sendMessage(session, imageBuffer, `表情包列表 指定角色`)
       }
-      await sendMessage(session, h.image(imageBuffer, 'image/jpeg'))
+      await sendMessage(session, h.image(imageBuffer, 'image/jpeg'), ``, 1570, 1096)
       await processUserInput(session)
     })
 
@@ -198,10 +227,19 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({session}, character) => {
       const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
       if (userRecord.length === 0) {
-        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+        return await sendMessage(session, `抱歉，您尚未绘制过表情包。`, `随机绘制 自选绘制`)
+      }
+      if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
+        return await sendMessage(session, `您当前可以调整的项目有：
+1. 修改文本内容
+2. 调整字体大小
+3. 调整行间距
+4. 开启/关闭文本曲线
+5. 调整文本位置
+6. 修改表情包角色`, `修改文本 调整字体 调整行间距 文本曲线 调整位置 修改角色 随机角色`)
       }
       return await sendMessage(session, `请使用以下指令调整表情包：
-> pjsk.调整.文本 &lt;文本内容&gt; - 修改文本
+> pjsk.调整.文本 [文本内容] - 修改文本
 > pjsk.调整.字体.大 - 字体变大
 > pjsk.调整.字体.小 - 字体变小
 > pjsk.调整.行间距.大 - 行间距变大
@@ -212,21 +250,20 @@ export function apply(ctx: Context, config: Config) {
 > pjsk.调整.位置.下 - 文本下移
 > pjsk.调整.位置.左 - 文本左移
 > pjsk.调整.位置.右 - 文本右移
-> pjsk.调整.角色 &lt;角色ID&gt; - 修改表情包角色
-`)
+> pjsk.调整.角色 [角色ID] - 修改表情包角色
+`, ``)
     })
   // tz* wb*
   ctx.command('pjsk.调整.文本 <textContent:text>', '修改文本内容')
     .action(async ({session}, textContent) => {
       const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
       if (userRecord.length === 0) {
-        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+        return await sendMessage(session, `抱歉，您尚未绘制过表情包。`, `随机绘制 自选绘制`)
       }
       await ctx.database.set('pjsk', {userId: session.userId}, {text: textContent})
       const {
         fontSize, curve, characterId, x, y, spaceSize, rotate
       } = userRecord[0]
-      console.log(fontSize, curve, characterId, x, y, spaceSize, rotate)
       await session.execute(`pjsk.绘制 -n ${characterId}${curve ? ` -c` : ''} ${textContent}`)
     })
 
@@ -235,11 +272,16 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({session}, change) => {
       const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
       if (userRecord.length === 0) {
-        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+        return await sendMessage(session, `抱歉，您尚未绘制过表情包。`, `随机绘制 自选绘制`)
+      }
+      if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
+        return await sendMessage(session, `您可以对字体进行的操作有：
+1. 字体变大
+2. 字体变小`, `字体变大 字体变小`)
       }
       return await sendMessage(session, `请使用以下指令调整字体大小：
 > pjsk.调整.字体.大 - 字体变大
-> pjsk.调整.字体.小 - 字体变小`)
+> pjsk.调整.字体.小 - 字体变小`, ``)
     })
 
   // tz* zt*
@@ -247,7 +289,7 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({session}, change) => {
       const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
       if (userRecord.length === 0) {
-        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+        return await sendMessage(session, `抱歉，您尚未绘制过表情包。`, `随机绘制 自选绘制`)
       }
       const {fontSize} = userRecord[0]
       await ctx.database.set('pjsk', {userId: session.userId}, {fontSize: fontSize + 5})
@@ -262,7 +304,7 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({session}, change) => {
       const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
       if (userRecord.length === 0) {
-        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+        return await sendMessage(session, `抱歉，您尚未绘制过表情包。`, `随机绘制 自选绘制`)
       }
       const {fontSize} = userRecord[0]
       await ctx.database.set('pjsk', {userId: session.userId}, {fontSize: fontSize - 5})
@@ -277,11 +319,16 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({session}, change) => {
       const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
       if (userRecord.length === 0) {
-        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+        return await sendMessage(session, `抱歉，您尚未绘制过表情包。`, `随机绘制 自选绘制`)
+      }
+      if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
+        return await sendMessage(session, `您可以对行间距进行的操作有：
+1. 行间距变大
+2. 行间距变小`, `行间距变大 行间距变小`)
       }
       return await sendMessage(session, `请使用以下指令调整行间距：
 > pjsk.调整.行间距.大 - 行间距变大
-> pjsk.调整.行间距.小 - 行间距变小`)
+> pjsk.调整.行间距.小 - 行间距变小`, ``)
     })
 
   // tz* hjj*
@@ -289,7 +336,7 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({session}, change) => {
       const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
       if (userRecord.length === 0) {
-        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+        return await sendMessage(session, `抱歉，您尚未绘制过表情包。`, `随机绘制 自选绘制`)
       }
       const {spaceSize} = userRecord[0]
       await ctx.database.set('pjsk', {userId: session.userId}, {spaceSize: spaceSize + 5})
@@ -304,7 +351,7 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({session}, change) => {
       const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
       if (userRecord.length === 0) {
-        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+        return await sendMessage(session, `抱歉，您尚未绘制过表情包。`, `随机绘制 自选绘制`)
       }
       const {spaceSize} = userRecord[0]
       await ctx.database.set('pjsk', {userId: session.userId}, {spaceSize: spaceSize - 5})
@@ -319,11 +366,16 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({session}, change) => {
       const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
       if (userRecord.length === 0) {
-        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+        return await sendMessage(session, `抱歉，您尚未绘制过表情包。`, `随机绘制 自选绘制`)
+      }
+      if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
+        return await sendMessage(session, `您可以对文本曲线进行的操作有：
+1. 开启文本曲线
+2. 关闭文本曲线`, `开启文本曲线 关闭文本曲线`)
       }
       return await sendMessage(session, `请使用以下指令调整文本曲线：
 > pjsk.调整.文本曲线.开启 - 开启文本曲线
-> pjsk.调整.文本曲线.关闭 - 关闭文本曲线`)
+> pjsk.调整.文本曲线.关闭 - 关闭文本曲线`, ``)
     })
 
   // tz* wbqx* qx*
@@ -331,7 +383,7 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({session}, change) => {
       const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
       if (userRecord.length === 0) {
-        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+        return await sendMessage(session, `抱歉，您尚未绘制过表情包。`, `随机绘制 自选绘制`)
       }
       await ctx.database.set('pjsk', {userId: session.userId}, {curve: true})
       const {
@@ -345,7 +397,7 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({session}, change) => {
       const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
       if (userRecord.length === 0) {
-        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+        return await sendMessage(session, `抱歉，您尚未绘制过表情包。`, `随机绘制 自选绘制`)
       }
       await ctx.database.set('pjsk', {userId: session.userId}, {curve: false})
       const {
@@ -359,13 +411,20 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({session}, change) => {
       const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
       if (userRecord.length === 0) {
-        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+        return await sendMessage(session, `抱歉，您尚未绘制过表情包。`, `随机绘制 自选绘制`)
+      }
+      if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
+        return await sendMessage(session, `您可以对文本进行的操作有：
+1. 文本上移
+2. 文本下移
+3. 文本左移
+4. 文本右移`, `文本上移 文本下移 文本左移 文本右移`)
       }
       return await sendMessage(session, `请使用以下指令调整文本位置：
 > pjsk.调整.位置.上 - 文本上移
 > pjsk.调整.位置.下 - 文本下移
 > pjsk.调整.位置.左 - 文本左移
-> pjsk.调整.位置.右 - 文本右移`)
+> pjsk.调整.位置.右 - 文本右移`, ``)
     })
 
   // tz* wz*
@@ -373,10 +432,10 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({session}, change) => {
       const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
       if (userRecord.length === 0) {
-        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+        return await sendMessage(session, `抱歉，您尚未绘制过表情包。`, `随机绘制 自选绘制`)
       }
       const {y} = userRecord[0]
-      await ctx.database.set('pjsk', {userId: session.userId}, {y: y - 5})
+      await ctx.database.set('pjsk', {userId: session.userId}, {y: y - 20})
       const {
         text, fontSize, curve, characterId, x, spaceSize, rotate
       } = userRecord[0]
@@ -388,10 +447,10 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({session}, change) => {
       const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
       if (userRecord.length === 0) {
-        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+        return await sendMessage(session, `抱歉，您尚未绘制过表情包。`, `随机绘制 自选绘制`)
       }
       const {y} = userRecord[0]
-      await ctx.database.set('pjsk', {userId: session.userId}, {y: y + 5})
+      await ctx.database.set('pjsk', {userId: session.userId}, {y: y + 20})
       const {
         text, fontSize, curve, characterId, x, spaceSize, rotate
       } = userRecord[0]
@@ -403,10 +462,10 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({session}, change) => {
       const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
       if (userRecord.length === 0) {
-        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+        return await sendMessage(session, `抱歉，您尚未绘制过表情包。`, `随机绘制 自选绘制`)
       }
       const {x} = userRecord[0]
-      await ctx.database.set('pjsk', {userId: session.userId}, {x: x - 5})
+      await ctx.database.set('pjsk', {userId: session.userId}, {x: x - 20})
       const {
         text, fontSize, curve, characterId, y, spaceSize, rotate
       } = userRecord[0]
@@ -418,10 +477,10 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({session}, change) => {
       const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
       if (userRecord.length === 0) {
-        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+        return await sendMessage(session, `抱歉，您尚未绘制过表情包。`, `随机绘制 自选绘制`)
       }
       const {x} = userRecord[0]
-      await ctx.database.set('pjsk', {userId: session.userId}, {x: x + 5})
+      await ctx.database.set('pjsk', {userId: session.userId}, {x: x + 20})
       const {
         text, fontSize, curve, characterId, y, spaceSize, rotate
       } = userRecord[0]
@@ -436,11 +495,11 @@ export function apply(ctx: Context, config: Config) {
         characterId = Math.floor(Math.random() * characters.length)
       }
       if (characterId < 0 || characterId >= characters.length) {
-        return await sendMessage(session, `抱歉，您输入的表情 ID 无效，请输入范围在 0 到 358 之间的有效表情 ID。`)
+        return await sendMessage(session, `抱歉，您输入的表情 ID 无效，请输入范围在 0 到 358 之间的有效表情 ID。`, `修改角色 随机角色`)
       }
       const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
       if (userRecord.length === 0) {
-        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+        return await sendMessage(session, `抱歉，您尚未绘制过表情包。`, `随机绘制 自选绘制`)
       }
       await ctx.database.set('pjsk', {userId: session.userId}, {characterId})
       const {
@@ -474,7 +533,7 @@ export function apply(ctx: Context, config: Config) {
       if (options.number !== undefined) {
         const isValidCharacter = options.number >= 0 && options.number < characters.length;
         if (!isValidCharacter) {
-          return await sendMessage(session, `抱歉，您输入的表情 ID 无效，请输入范围在 0 到 358 之间的有效表情 ID。`)
+          return await sendMessage(session, `抱歉，您输入的表情 ID 无效，请输入范围在 0 到 358 之间的有效表情 ID。`, `随机绘制 自选绘制`)
         }
         character = characters[options.number]
         characterId = options.number
@@ -553,20 +612,134 @@ export function apply(ctx: Context, config: Config) {
         })
       }
       const buffer = await draw(text, imgPath, specifiedX, specifiedY, specifiedRotate, specifiedFontSize, color, curve, spaceSize, angle)
-      return await sendMessage(session, h.image(buffer, 'image/png'))
+      return await sendMessage(session, h.image(buffer, 'image/png'), `修改文本 字体变大 字体变小 修改角色 行间距变大 行间距变小 随机角色 开启文本曲线 关闭文本曲线 随机绘制 文本上移 文本下移 自选绘制 文本左移 文本右移`, 296, 256) //db*
+      // 修改文本 字体变大 字体变小 修改角色 行间距变大 行间距变小 随机角色 开启文本曲线 关闭文本曲线 随机绘制 文本上移 文本下移 自选绘制 文本左移 文本右移
     })
 
 
   // hs*
+  function parseMarkdownCommands(markdownCommands: string): string[] {
+    return markdownCommands.split(' ').filter(command => command.trim() !== '');
+  }
+
+  function createButtons(markdownCommands: string): Button[] {
+    const commands = parseMarkdownCommands(markdownCommands);
+
+    return commands.map(command => { // db*
+      let dataValue = command;
+      switch (command) {
+        case '全部':
+          dataValue = 'pjsk.列表.全部';
+          break;
+        case '角色分类':
+          dataValue = 'pjsk.列表.角色分类';
+          break;
+        case '指定角色':
+          dataValue = 'pjsk.列表.展开指定角色';
+          break;
+        case '输入':
+          dataValue = '';
+          break;
+        case '表情包列表':
+          dataValue = 'pjsk.列表';
+          break;
+        case '随机绘制':
+          dataValue = 'pjsk.绘制';
+          break;
+        case '自选绘制':
+          dataValue = 'pjsk.列表.角色分类';
+          break;
+        case '修改文本':
+          dataValue = 'pjsk.调整.文本';
+          break;
+        case '调整字体':
+          dataValue = 'pjsk.调整.字体';
+          break;
+        case '调整行间距':
+          dataValue = 'pjsk.调整.行间距';
+          break;
+        case '文本曲线':
+          dataValue = 'pjsk.调整.文本曲线';
+          break;
+        case '调整位置':
+          dataValue = 'pjsk.调整.位置';
+          break;
+        case '修改角色':
+          dataValue = 'pjsk.调整.角色';
+          break;
+        case '字体变大':
+          dataValue = 'pjsk.调整.字体.大';
+          break;
+        case '字体变小':
+          dataValue = 'pjsk.调整.字体.小';
+          break;
+        case '行间距变大':
+          dataValue = 'pjsk.调整.行间距.大';
+          break;
+        case '行间距变小':
+          dataValue = 'pjsk.调整.行间距.小';
+          break;
+        case '开启文本曲线':
+          dataValue = 'pjsk.调整.文本曲线.开启';
+          break;
+        case '关闭文本曲线':
+          dataValue = 'pjsk.调整.文本曲线.关闭';
+          break;
+        case '文本上移':
+          dataValue = 'pjsk.调整.位置.上';
+          break;
+        case '文本下移':
+          dataValue = 'pjsk.调整.位置.下';
+          break;
+        case '文本左移':
+          dataValue = 'pjsk.调整.位置.左';
+          break;
+        case '文本右移':
+          dataValue = 'pjsk.调整.位置.右';
+          break;
+        case '随机角色':
+          dataValue = 'pjsk.调整.角色 -r';
+          break;
+        case '输入角色序号或名称':
+          dataValue = '';
+          break;
+        default:
+          dataValue = ``;
+          break;
+      }
+
+      return {
+        render_data: {
+          label: command,
+          visited_label: command,
+          style: 1,
+        },
+        action: {
+          type: 2,
+          permission: {type: 2},
+          data: `${dataValue}`,
+          enter: !['指定角色', '输入', '修改角色', '修改文本', '输入角色序号或名称'].includes(command),
+        },
+      };
+    });
+  }
+
   async function checkOptions(session, options: any, key: string, range: Range): Promise<boolean> {
     if (options[key] !== undefined && (options[key] < range.min || options[key] > range.max)) {
-      await sendMessage(session, range.message);
+      await sendMessage(session, range.message, `随机绘制 自选绘制`);
       return true;
     }
     return false;
   }
 
   async function processUserInput(session: any) {
+    if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
+      await sendMessage(session, `请选择您中意的表情 ID，
+并按以下格式进行绘制：
+> 表情包序号 文本内容
+例如：0 你好呀
+友情提示：输入时无需添加 > 符号哦~`, `输入`)
+    }
     const userInput = await session.prompt();
     if (!userInput) return;
 
@@ -998,12 +1171,94 @@ export function apply(ctx: Context, config: Config) {
   }
 
   let sentMessages = [];
+  const msgSeqMap: { [msgId: string]: number } = {};
 
-  async function sendMessage(session: any, message: any): Promise<void> {
+  async function sendMessage(session: any, message: any, markdownCommands: string, width?: number, height?: number): Promise<void> {
+    markdownCommands = markdownCommands || '';
+    width = width || 296;
+    height = height || 256;
     const {bot, channelId} = session;
     let messageId;
-    [messageId] = await session.send(message);
+    if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
+      const msgSeq = msgSeqMap[session.messageId] || 1;
+      msgSeqMap[session.messageId] = msgSeq + 1;
+      const buttons = createButtons(markdownCommands);
 
+      const rows = [];
+      let row = {buttons: []};
+      buttons.forEach((button, index) => {
+        row.buttons.push(button);
+        if (row.buttons.length === 5 || index === buttons.length - 1 || row.buttons.length === config.numberOfMessageButtonsPerRow) {
+          rows.push(row);
+          row = {buttons: []};
+        }
+      });
+
+      if (message.attrs?.src) {
+        const hImg = message.attrs.src
+        const capture = /^data:([\w/-]+);base64,(.*)$/.exec(hImg)
+        const result = await session.qq.sendFileGuild(session.channelId, {
+          file_type: 1,
+          file_data: capture[2],
+          srv_send_msg: false,
+        })
+        const url = `http://multimedia.nt.qq.com/download?appid=1407&fileid=${result.file_uuid}&rkey=CAMSKMa3OFokB%5fTlXbdWx0sNAtdt7YQNj36jIjbfuwwsli1U3XZknVopAnQ`
+        // const fileInfo = result.file_info;
+        const result2 = await session.qq.sendMessage(session.channelId, {
+          msg_type: 2,
+          msg_id: session.messageId,
+          msg_seq: msgSeq,
+          content: '111',
+          markdown: {
+            custom_template_id: config.customTemplateId,
+            params: [
+              {
+                key: config.key2,
+                values: [`![img #${width}px #${height}px]`],
+              },
+              {
+                key: config.key3,
+                values: [`(${url})`],
+              }
+            ],
+          },
+          keyboard: {
+            content: {
+              rows: rows.slice(0, 5),
+            },
+          },
+        });
+        messageId = result2.id;
+      } else {
+        message = message.replace(/\n/g, '\r');
+
+        const result = await session.qq.sendMessage(session.channelId, {
+          msg_type: 2,
+          msg_id: session.messageId,
+          msg_seq: msgSeq,
+          content: '111',
+          markdown: {
+            custom_template_id: config.customTemplateId,
+            params: [
+              {
+                key: config.key,
+                values: [`${message}`],
+              },
+            ],
+          },
+          keyboard: {
+            content: {
+              rows: rows.slice(0, 5),
+            },
+          },
+        });
+        messageId = result.id;
+      }
+
+
+    } else {
+      [messageId] = await session.send(message);
+    }
 
     if (config.retractDelay === 0) return;
     sentMessages.push(messageId);
@@ -1011,7 +1266,11 @@ export function apply(ctx: Context, config: Config) {
     if (sentMessages.length > 1) {
       const oldestMessageId = sentMessages.shift();
       setTimeout(async () => {
-        await bot.deleteMessage(channelId, oldestMessageId);
+        if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
+        } else {
+          await bot.deleteMessage(channelId, oldestMessageId);
+
+        }
       }, config.retractDelay * 1000);
     }
   }

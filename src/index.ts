@@ -199,8 +199,8 @@ export function apply(ctx: Context, config: Config) {
       await sendMessage(session, h.image(buffer, 'image/jpeg'), ``, 1570, 1637)
       if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
         await sendMessage(session, `查看指定角色的表情，请输入：
-- 角色序号，如：10
-- 角色名，如：emu`, `输入角色序号或名称`)
+> 角色序号，例如：10
+> 角色名，例如：Emu`, `输入角色序号或名称`)
       }
       const userInput = await session.prompt()
       if (!userInput) return isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq' ? await sendMessage(session, `输入无效或超时！`, ``) : noop()
@@ -612,8 +612,8 @@ export function apply(ctx: Context, config: Config) {
         })
       }
       const buffer = await draw(text, imgPath, specifiedX, specifiedY, specifiedRotate, specifiedFontSize, color, curve, spaceSize, angle)
-      return await sendMessage(session, h.image(buffer, 'image/png'), `修改文本 字体变大 字体变小 修改角色 行间距变大 行间距变小 随机角色 开启文本曲线 关闭文本曲线 随机绘制 文本上移 文本下移 自选绘制 文本左移 文本右移`, 296, 256) //db*
-      // 修改文本 字体变大 字体变小 修改角色 行间距变大 行间距变小 随机角色 开启文本曲线 关闭文本曲线 随机绘制 文本上移 文本下移 自选绘制 文本左移 文本右移
+      await sendMessage(session, h.image(buffer, 'image/png'), ``, 296, 256)
+      return await sendMessage(session, `🎉 表情包绘制完成！`, `修改文本 字体变大 字体变小 修改角色 行间距变大 行间距变小 随机角色 开启曲线 关闭曲线 随机绘制 文本上移 文本下移 自选绘制 文本左移 文本右移`)
     })
 
 
@@ -625,7 +625,7 @@ export function apply(ctx: Context, config: Config) {
   function createButtons(markdownCommands: string): Button[] {
     const commands = parseMarkdownCommands(markdownCommands);
 
-    return commands.map(command => { // db*
+    return commands.map(command => {
       let dataValue = command;
       switch (command) {
         case '全部':
@@ -679,10 +679,10 @@ export function apply(ctx: Context, config: Config) {
         case '行间距变小':
           dataValue = 'pjsk.调整.行间距.小';
           break;
-        case '开启文本曲线':
+        case '开启曲线':
           dataValue = 'pjsk.调整.文本曲线.开启';
           break;
-        case '关闭文本曲线':
+        case '关闭曲线':
           dataValue = 'pjsk.调整.文本曲线.关闭';
           break;
         case '文本上移':
@@ -737,8 +737,7 @@ export function apply(ctx: Context, config: Config) {
       await sendMessage(session, `请选择您中意的表情 ID，
 并按以下格式进行绘制：
 > 表情包序号 文本内容
-例如：0 你好呀
-友情提示：输入时无需添加 > 符号哦~`, `输入`)
+例如：6 你好呀`, `输入`)
     }
     const userInput = await session.prompt();
     if (!userInput) return;
@@ -1181,7 +1180,7 @@ export function apply(ctx: Context, config: Config) {
     let messageId;
     if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
       const msgSeq = msgSeqMap[session.messageId] || 1;
-      msgSeqMap[session.messageId] = msgSeq + 1;
+      msgSeqMap[session.messageId] = msgSeq + 100;
       const buttons = createButtons(markdownCommands);
 
       const rows = [];
@@ -1195,40 +1194,41 @@ export function apply(ctx: Context, config: Config) {
       });
 
       if (message.attrs?.src) {
-        const hImg = message.attrs.src
-        const capture = /^data:([\w/-]+);base64,(.*)$/.exec(hImg)
-        const result = await session.qq.sendFileGuild(session.channelId, {
-          file_type: 1,
-          file_data: capture[2],
-          srv_send_msg: false,
-        })
-        const url = `http://multimedia.nt.qq.com/download?appid=1407&fileid=${result.file_uuid}&rkey=CAMSKMa3OFokB%5fTlXbdWx0sNAtdt7YQNj36jIjbfuwwsli1U3XZknVopAnQ`
-        // const fileInfo = result.file_info;
-        const result2 = await session.qq.sendMessage(session.channelId, {
-          msg_type: 2,
-          msg_id: session.messageId,
-          msg_seq: msgSeq,
-          content: '111',
-          markdown: {
-            custom_template_id: config.customTemplateId,
-            params: [
-              {
-                key: config.key2,
-                values: [`![img #${width}px #${height}px]`],
-              },
-              {
-                key: config.key3,
-                values: [`(${url})`],
-              }
-            ],
-          },
-          keyboard: {
-            content: {
-              rows: rows.slice(0, 5),
-            },
-          },
-        });
-        messageId = result2.id;
+        [messageId] = await session.send(message);
+        // const hImg = message.attrs.src
+        // const capture = /^data:([\w/-]+);base64,(.*)$/.exec(hImg)
+        // const result = await session.qq.sendFileGuild(session.channelId, {
+        //   file_type: 1,
+        //   file_data: capture[2],
+        //   srv_send_msg: false,
+        // })
+        // const url = `http://multimedia.nt.qq.com/download?appid=1407&fileid=${result.file_uuid}&rkey=CAMSKMa3OFokB%5fTlXbdWx0sNAtdt7YQNj36jIjbfuwwsli1U3XZknVopAnQ`
+        // // const fileInfo = result.file_info;
+        // const result2 = await session.qq.sendMessage(session.channelId, {
+        //   msg_type: 2,
+        //   msg_id: session.messageId,
+        //   msg_seq: msgSeq,
+        //   content: '111',
+        //   markdown: {
+        //     custom_template_id: config.customTemplateId,
+        //     params: [
+        //       {
+        //         key: config.key2,
+        //         values: [`![img #${width}px #${height}px]`],
+        //       },
+        //       {
+        //         key: config.key3,
+        //         values: [`(${url})`],
+        //       }
+        //     ],
+        //   },
+        //   keyboard: {
+        //     content: {
+        //       rows: rows.slice(0, 5),
+        //     },
+        //   },
+        // });
+        // messageId = result2.id;
       } else {
         message = message.replace(/\n/g, '\r');
 

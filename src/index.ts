@@ -1,5 +1,5 @@
 import {Context, Logger, Schema, h} from 'koishi'
-
+import {} from '@koishijs/plugin-help'
 import {} from 'koishi-plugin-puppeteer';
 import path from 'path';
 import * as fs from "fs";
@@ -33,12 +33,54 @@ const logger = new Logger('PJSK')
 export interface Config {
   isTextSizeAdaptationEnabled: boolean
   retractDelay: number
+
+  isEnableQQOfficialRobotMarkdownTemplate: boolean
+  customTemplateId: string
+  key: string
+  key2: string
+  key3: string
+  numberOfMessageButtonsPerRow: number
 }
 
-export const Config: Schema<Config> = Schema.object({
-  isTextSizeAdaptationEnabled: Schema.boolean().default(true).description('是否启用文本大小自适应'),
-  retractDelay: Schema.number().min(0).default(0).description(`自动撤回等待的时间，单位是秒。值为 0 时不启用自动撤回功能。`),
-})
+export const Config: Schema<Config> = Schema.intersect([
+  Schema.object({
+    isTextSizeAdaptationEnabled: Schema.boolean().default(true).description('是否启用文本大小自适应'),
+    retractDelay: Schema.number().min(0).default(0).description(`自动撤回等待的时间，单位是秒。值为 0 时不启用自动撤回功能。`),
+    isEnableQQOfficialRobotMarkdownTemplate: Schema.boolean().default(false).description(`是否启用 QQ 官方机器人的 Markdown 模板，带消息按钮。`),
+  }),
+  Schema.union([
+    Schema.object({
+      isEnableQQOfficialRobotMarkdownTemplate: Schema.const(true).required(),
+      customTemplateId: Schema.string().default('').description(`自定义模板 ID。`),
+      key: Schema.string().default('').description(`文本内容中特定插值的 key，用于存放文本。`),
+      key2: Schema.string().default('').description(`发送图片信息的特定插值的 key，用于存放图片的宽高。与下面的 key3 联动，Markdown 源码中形如：{{.key2}}{{.key3}}。`),
+      key3: Schema.string().default('').description(`发送图片URL的特定插值的 key，用于存放图片的URL。`),
+      numberOfMessageButtonsPerRow: Schema.number().min(1).max(5).default(3).description(`每行消息按钮的数量。`),
+    }),
+    Schema.object({}),
+  ]),
+]) as any
+
+declare module 'koishi' {
+  interface Tables {
+    pjsk: PJSK
+  }
+}
+
+export interface PJSK {
+  id: number
+  userId: string
+  username: string
+  // 字体大小 文字曲线 角色ID 文本 x y 行间距 旋转角度
+  fontSize: number
+  curve: boolean
+  characterId: number
+  text: string
+  x: number
+  y: number
+  spaceSize: number
+  rotate: number
+}
 
 // jk*
 interface Range {
@@ -48,7 +90,22 @@ interface Range {
 }
 
 export function apply(ctx: Context, config: Config) {
+  // tzb*
+  ctx.model.extend('pjsk', {
+    id: 'unsigned',
+    userId: 'string',
+    username: 'string',
+    fontSize: 'unsigned',
+    curve: 'boolean',
+    characterId: 'unsigned',
+    text: 'string',
+    x: 'unsigned',
+    y: 'unsigned',
+    spaceSize: 'unsigned',
+    rotate: 'integer',
+  }, {primary: 'id', autoInc: true})
   // cl*
+  const isQQOfficialRobotMarkdownTemplateEnabled = config.isEnableQQOfficialRobotMarkdownTemplate && config.key !== '' && config.customTemplateId !== '' && config.key2 !== '' && config.key3 !== ''
   const filePath = path.join(__dirname, 'emptyHtml.html').replace(/\\/g, '/');
   const characterNames = [
     'characterListAll',
@@ -90,27 +147,318 @@ export function apply(ctx: Context, config: Config) {
   const characters = JSON.parse(fs.readFileSync(path.join(__dirname, 'assets', 'characters.json'), 'utf8'))
 
   // pjsk* h* bz*
-  ctx.command('pjsk', '查看pjsk表情包生成帮助')
+  ctx.command('pjsk', '初音未来表情包生成帮助')
     .action(async ({session}) => {
       await session.execute(`pjsk -h`)
     })
   // lb*
-  ctx.command('pjsk.列表', 'pjsk表情列表')
+  ctx.command('pjsk.列表', '表情列表指令引导')
     .action(async ({session}) => {
-      // 读取 pjskListDir 图片，并得到 buffer
+      // 提示当前可用的表情包列表
+      return await sendMessage(session, `请使用以下指令查看表情包列表：
+> pjsk.列表.全部 - 查看全部表情包列表
+> pjsk.列表.角色分类 - 查看角色分类表情包列表
+> pjsk.列表.展开指定角色 &lt;角色序号或角色名&gt; - 查看指定角色表情包列表`)
+    })
+
+  // lb* qb*
+  ctx.command('pjsk.列表.全部', '全部表情列表')
+    .action(async ({session}) => {
       const buffer = fs.readFileSync(pjskListDir['pjskListForcharacterListAllDir']);
-      return await sendMessage(session, h.image(buffer, 'image/jpeg'))
+      await sendMessage(session, h.image(buffer, 'image/jpeg'))
+      await processUserInput(session)
+    })
+  // lb* js* fl*
+  ctx.command('pjsk.列表.角色分类', '角色分类表情列表')
+    .action(async ({session}) => {
+      const buffer = fs.readFileSync(pjskListDir['pjskListForcharacterListWithIndexDir']);
+      await sendMessage(session, h.image(buffer, 'image/jpeg'))
+      const userInput = await session.prompt()
+      if (!userInput) return
+      const character = getCharacterName(userInput);
+      if (character === `无效的角色序号或角色名！` || character === `找不到角色图像！`) {
+        return
+      } else {
+        await session.execute(`pjsk.列表.展开指定角色 ${character}`)
+      }
+    })
+  // lb* js* fl*
+  ctx.command('pjsk.列表.展开指定角色 <character:string>', '展开指定角色表情列表')
+    .action(async ({session}, character) => {
+      const imageBuffer = getCharacterImageBuffer(character);
+      if (imageBuffer === `无效的角色序号或角色名！` || imageBuffer === `找不到角色图像！`) {
+        return await sendMessage(session, imageBuffer)
+      }
+      await sendMessage(session, h.image(imageBuffer, 'image/jpeg'))
+      await processUserInput(session)
+    })
+
+  // tz*
+  ctx.command('pjsk.调整', '调整指令引导')
+    .action(async ({session}, character) => {
+      const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
+      if (userRecord.length === 0) {
+        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+      }
+      return await sendMessage(session, `请使用以下指令调整表情包：
+> pjsk.调整.文本 &lt;文本内容&gt; - 修改文本
+> pjsk.调整.字体.大 - 字体变大
+> pjsk.调整.字体.小 - 字体变小
+> pjsk.调整.行间距.大 - 行间距变大
+> pjsk.调整.行间距.小 - 行间距变小
+> pjsk.调整.文本曲线.开启 - 开启文本曲线
+> pjsk.调整.文本曲线.关闭 - 关闭文本曲线
+> pjsk.调整.位置.上 - 文本上移
+> pjsk.调整.位置.下 - 文本下移
+> pjsk.调整.位置.左 - 文本左移
+> pjsk.调整.位置.右 - 文本右移
+> pjsk.调整.角色 &lt;角色ID&gt; - 修改表情包角色
+`)
+    })
+  // tz* wb*
+  ctx.command('pjsk.调整.文本 <textContent:text>', '修改文本内容')
+    .action(async ({session}, textContent) => {
+      const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
+      if (userRecord.length === 0) {
+        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+      }
+      await ctx.database.set('pjsk', {userId: session.userId}, {text: textContent})
+      const {
+        fontSize, curve, characterId, x, y, spaceSize, rotate
+      } = userRecord[0]
+      console.log(fontSize, curve, characterId, x, y, spaceSize, rotate)
+      await session.execute(`pjsk.绘制 -n ${characterId}${curve ? ` -c` : ''} ${textContent}`)
+    })
+
+  // tz* zt*
+  ctx.command('pjsk.调整.字体', '调整字体大小指令引导')
+    .action(async ({session}, change) => {
+      const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
+      if (userRecord.length === 0) {
+        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+      }
+      return await sendMessage(session, `请使用以下指令调整字体大小：
+> pjsk.调整.字体.大 - 字体变大
+> pjsk.调整.字体.小 - 字体变小`)
+    })
+
+  // tz* zt*
+  ctx.command('pjsk.调整.字体.大', '')
+    .action(async ({session}, change) => {
+      const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
+      if (userRecord.length === 0) {
+        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+      }
+      const {fontSize} = userRecord[0]
+      await ctx.database.set('pjsk', {userId: session.userId}, {fontSize: fontSize + 5})
+      const {
+        text, curve, characterId, x, y, spaceSize, rotate
+      } = userRecord[0]
+      await session.execute(`pjsk.绘制 --daf -n ${characterId} -s ${fontSize + 5} -x ${x} -y ${y} -l ${spaceSize}${curve ? ` -c` : ''} ${text}`)
+    })
+
+  // tz* zt*
+  ctx.command('pjsk.调整.字体.小', '')
+    .action(async ({session}, change) => {
+      const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
+      if (userRecord.length === 0) {
+        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+      }
+      const {fontSize} = userRecord[0]
+      await ctx.database.set('pjsk', {userId: session.userId}, {fontSize: fontSize - 5})
+      const {
+        text, curve, characterId, x, y, spaceSize, rotate
+      } = userRecord[0]
+      await session.execute(`pjsk.绘制 --daf -n ${characterId} -s ${fontSize - 5} -x ${x} -y ${y} -l ${spaceSize}${curve ? ` -c` : ''} ${text}`)
+    })
+
+  // tz* hjj*
+  ctx.command('pjsk.调整.行间距', '调整行间距指令引导')
+    .action(async ({session}, change) => {
+      const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
+      if (userRecord.length === 0) {
+        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+      }
+      return await sendMessage(session, `请使用以下指令调整行间距：
+> pjsk.调整.行间距.大 - 行间距变大
+> pjsk.调整.行间距.小 - 行间距变小`)
+    })
+
+  // tz* hjj*
+  ctx.command('pjsk.调整.行间距.大', '')
+    .action(async ({session}, change) => {
+      const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
+      if (userRecord.length === 0) {
+        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+      }
+      const {spaceSize} = userRecord[0]
+      await ctx.database.set('pjsk', {userId: session.userId}, {spaceSize: spaceSize + 5})
+      const {
+        text, curve, characterId, x, y, fontSize, rotate
+      } = userRecord[0]
+      await session.execute(`pjsk.绘制 --daf -n ${characterId} -s ${fontSize} -x ${x} -y ${y} -l ${spaceSize + 5}${curve ? ` -c` : ''} ${text}`)
+    })
+
+  // tz* hjj*
+  ctx.command('pjsk.调整.行间距.小', '')
+    .action(async ({session}, change) => {
+      const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
+      if (userRecord.length === 0) {
+        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+      }
+      const {spaceSize} = userRecord[0]
+      await ctx.database.set('pjsk', {userId: session.userId}, {spaceSize: spaceSize - 5})
+      const {
+        text, curve, characterId, x, y, fontSize, rotate
+      } = userRecord[0]
+      await session.execute(`pjsk.绘制 --daf -n ${characterId} -s ${fontSize} -x ${x} -y ${y} -l ${spaceSize - 5}${curve ? ` -c` : ''} ${text}`)
+    })
+
+  // tz* wbqx* qx*
+  ctx.command('pjsk.调整.文本曲线', '调整文本曲线指令引导')
+    .action(async ({session}, change) => {
+      const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
+      if (userRecord.length === 0) {
+        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+      }
+      return await sendMessage(session, `请使用以下指令调整文本曲线：
+> pjsk.调整.文本曲线.开启 - 开启文本曲线
+> pjsk.调整.文本曲线.关闭 - 关闭文本曲线`)
+    })
+
+  // tz* wbqx* qx*
+  ctx.command('pjsk.调整.文本曲线.开启', '开启文本曲线')
+    .action(async ({session}, change) => {
+      const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
+      if (userRecord.length === 0) {
+        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+      }
+      await ctx.database.set('pjsk', {userId: session.userId}, {curve: true})
+      const {
+        text, fontSize, characterId, x, y, spaceSize, rotate
+      } = userRecord[0]
+      await session.execute(`pjsk.绘制 -n ${characterId} -c ${text}`)
+    })
+
+  // tz* wbqx* qx*
+  ctx.command('pjsk.调整.文本曲线.关闭', '关闭文本曲线')
+    .action(async ({session}, change) => {
+      const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
+      if (userRecord.length === 0) {
+        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+      }
+      await ctx.database.set('pjsk', {userId: session.userId}, {curve: false})
+      const {
+        text, fontSize, characterId, x, y, spaceSize, rotate
+      } = userRecord[0]
+      await session.execute(`pjsk.绘制 -n ${characterId} ${text}`)
+    })
+
+  // tz* wz*
+  ctx.command('pjsk.调整.位置', '调整文本位置指令引导')
+    .action(async ({session}, change) => {
+      const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
+      if (userRecord.length === 0) {
+        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+      }
+      return await sendMessage(session, `请使用以下指令调整文本位置：
+> pjsk.调整.位置.上 - 文本上移
+> pjsk.调整.位置.下 - 文本下移
+> pjsk.调整.位置.左 - 文本左移
+> pjsk.调整.位置.右 - 文本右移`)
+    })
+
+  // tz* wz*
+  ctx.command('pjsk.调整.位置.上', '文本上移')
+    .action(async ({session}, change) => {
+      const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
+      if (userRecord.length === 0) {
+        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+      }
+      const {y} = userRecord[0]
+      await ctx.database.set('pjsk', {userId: session.userId}, {y: y - 5})
+      const {
+        text, fontSize, curve, characterId, x, spaceSize, rotate
+      } = userRecord[0]
+      await session.execute(`pjsk.绘制 --daf -n ${characterId} -s ${fontSize} -x ${x} -y ${y - 20} -l ${spaceSize}${curve ? ` -c` : ''} ${text}`)
+    })
+
+  // tz* wz*
+  ctx.command('pjsk.调整.位置.下', '文本下移')
+    .action(async ({session}, change) => {
+      const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
+      if (userRecord.length === 0) {
+        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+      }
+      const {y} = userRecord[0]
+      await ctx.database.set('pjsk', {userId: session.userId}, {y: y + 5})
+      const {
+        text, fontSize, curve, characterId, x, spaceSize, rotate
+      } = userRecord[0]
+      await session.execute(`pjsk.绘制 --daf -n ${characterId} -s ${fontSize} -x ${x} -y ${y + 20} -l ${spaceSize}${curve ? ` -c` : ''} ${text}`)
+    })
+
+  // tz* wz*
+  ctx.command('pjsk.调整.位置.左', '文本左移')
+    .action(async ({session}, change) => {
+      const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
+      if (userRecord.length === 0) {
+        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+      }
+      const {x} = userRecord[0]
+      await ctx.database.set('pjsk', {userId: session.userId}, {x: x - 5})
+      const {
+        text, fontSize, curve, characterId, y, spaceSize, rotate
+      } = userRecord[0]
+      await session.execute(`pjsk.绘制 --daf -n ${characterId} -s ${fontSize} -x ${x - 20} -y ${y} -l ${spaceSize}${curve ? ` -c` : ''} ${text}`)
+    })
+
+  // tz* wz*
+  ctx.command('pjsk.调整.位置.右', '文本右移')
+    .action(async ({session}, change) => {
+      const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
+      if (userRecord.length === 0) {
+        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+      }
+      const {x} = userRecord[0]
+      await ctx.database.set('pjsk', {userId: session.userId}, {x: x + 5})
+      const {
+        text, fontSize, curve, characterId, y, spaceSize, rotate
+      } = userRecord[0]
+      await session.execute(`pjsk.绘制 --daf -n ${characterId} -s ${fontSize} -x ${x + 20} -y ${y} -l ${spaceSize}${curve ? ` -c` : ''} ${text}`)
+    })
+
+  // tz* jx*
+  ctx.command('pjsk.调整.角色 <characterId:number>', '修改表情包角色')
+    .option('random', '-r 随机选择角色', {fallback: false})
+    .action(async ({session, options}, characterId) => {
+      if (options.random) {
+        characterId = Math.floor(Math.random() * characters.length)
+      }
+      if (characterId < 0 || characterId >= characters.length) {
+        return await sendMessage(session, `抱歉，您输入的表情 ID 无效，请输入范围在 0 到 358 之间的有效表情 ID。`)
+      }
+      const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
+      if (userRecord.length === 0) {
+        return await sendMessage(session, `抱歉，您还没有绘制过表情包，请先绘制表情包。`)
+      }
+      await ctx.database.set('pjsk', {userId: session.userId}, {characterId})
+      const {
+        text, fontSize, curve, x, y, spaceSize, rotate
+      } = userRecord[0]
+      await session.execute(`pjsk.绘制 --daf -n ${characterId} -s ${fontSize} -x ${x} -y ${y} -l ${spaceSize}${curve ? ` -c` : ''} ${text}`)
     })
 
   // hz*
   ctx.command('pjsk.绘制 [inputText:text]', '绘制表情包')
     .option('number', '-n [number:number] 表情包ID', {fallback: undefined})
-    .option('positionY', '-y [positionY:number] 文本的垂直位置')
-    .option('positionX', '-x [positionX:number] 文本的水平位置')
-    .option('rotate', '-r [rotate:number] 文本的旋转角度')
-    .option('fontSize', '-s [fontSize:number] 文本字体的大小')
-    .option('spaceSize', '-l [spaceSize:number] 文本上下行间距')
+    .option('positionY', '-y [positionY:number] 文本的垂直位置', {fallback: undefined})
+    .option('positionX', '-x [positionX:number] 文本的水平位置', {fallback: undefined})
+    .option('rotate', '-r [rotate:number] 文本的旋转角度', {fallback: undefined})
+    .option('fontSize', '-s [fontSize:number] 文本字体的大小', {fallback: undefined})
+    .option('spaceSize', '-l [spaceSize:number] 文本上下行间距', {fallback: 18})
     .option('curve', '-c 是否启用文本曲线', {fallback: false})
+    .option('disableAdaptiveFunctionality', '--daf 关闭自适应功能', {hidden: true, fallback: false})
     .action(async ({session, options}, inputText) => {
 
       // 表情包 ID 必须在 characters 的元素个数之内，即小于 characters.length，默认为随机
@@ -122,14 +470,18 @@ export function apply(ctx: Context, config: Config) {
       // 文本上下行间距 spaceSize 范围 18 ~ 100，默认值为 18
 
       let character: { defaultText?: any; id?: string; name?: string; character?: string; img?: any; color?: any; };
+      let characterId: number;
       if (options.number !== undefined) {
         const isValidCharacter = options.number >= 0 && options.number < characters.length;
         if (!isValidCharacter) {
           return await sendMessage(session, `抱歉，您输入的表情 ID 无效，请输入范围在 0 到 358 之间的有效表情 ID。`)
         }
         character = characters[options.number]
+        characterId = options.number
       } else {
-        character = getRandomCharacter(characters);
+        const randomIndex = Math.floor(Math.random() * characters.length);
+        character = characters[randomIndex];
+        characterId = randomIndex
       }
 
       let {text, x, y, r: rotate, s: fontSize} = character.defaultText;
@@ -147,21 +499,13 @@ export function apply(ctx: Context, config: Config) {
       let specifiedFontSize = options.fontSize !== undefined ? options.fontSize : fontSize;
 
 
-      if (config.isTextSizeAdaptationEnabled) {
+      if (config.isTextSizeAdaptationEnabled && !options.disableAdaptiveFunctionality) {
         const longestLine = findLongestLine(text);
         const offsets = calculateOffsets(longestLine, options);
         specifiedX += offsets.x;
         specifiedY += offsets.y;
         specifiedFontSize = calculateFontSize(specifiedFontSize, longestLine);
         spaceSize += specifiedFontSize / 2 + 10;
-      }
-
-      async function checkOptions(options: any, key: string, range: Range): Promise<boolean> {
-        if (options[key] !== undefined && (options[key] < range.min || options[key] > range.max)) {
-          await sendMessage(session, range.message);
-          return true;
-        }
-        return false;
       }
 
       const ranges: { [key: string]: Range } = {
@@ -172,29 +516,128 @@ export function apply(ctx: Context, config: Config) {
         spaceSize: {min: 18, max: 100, message: '抱歉，文本的上下行间距必须在 18 到 100 之间。'}
       };
 
-      for (const key in ranges) {
-        if (await checkOptions(options, key, ranges[key])) {
-          return;
+      if (!options.curve) {
+        for (const key in ranges) {
+          if (await checkOptions(session, options, key, ranges[key])) {
+            return;
+          }
         }
       }
 
       const angle = (Math.PI * text.length) / 7; // 曲线弯曲的角度
+      const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
+      if (userRecord.length === 0) {
+        await ctx.database.create('pjsk', {
+          userId: session.userId,
+          username: session.username,
+          text,
+          fontSize: specifiedFontSize,
+          curve,
+          characterId,
+          x: specifiedX,
+          y: specifiedY,
+          spaceSize,
+          rotate: specifiedRotate
+        })
+      } else {
+        await ctx.database.set('pjsk', {userId: session.userId}, {
+          userId: session.userId, username: session.username,
+          text,
+          fontSize: specifiedFontSize,
+          curve,
+          characterId,
+          x: specifiedX,
+          y: specifiedY,
+          spaceSize,
+          rotate: specifiedRotate
+        })
+      }
       const buffer = await draw(text, imgPath, specifiedX, specifiedY, specifiedRotate, specifiedFontSize, color, curve, spaceSize, angle)
       return await sendMessage(session, h.image(buffer, 'image/png'))
     })
 
 
   // hs*
+  async function checkOptions(session, options: any, key: string, range: Range): Promise<boolean> {
+    if (options[key] !== undefined && (options[key] < range.min || options[key] > range.max)) {
+      await sendMessage(session, range.message);
+      return true;
+    }
+    return false;
+  }
+
+  async function processUserInput(session: any) {
+    const userInput = await session.prompt();
+    if (!userInput) return;
+
+    const [number, ...words] = userInput.split(' ');
+    const text = words.join(' ');
+
+    const isValidCharacter = /^\d+$/.test(number) && parseInt(number, 10) >= 0 && parseInt(number, 10) < characters.length;
+
+    if (!isValidCharacter) {
+      return;
+    } else {
+      await session.execute(`pjsk.绘制 -n ${parseInt(number, 10)} ${text}`);
+    }
+  }
+
+  function getCharacterName(character: string): string {
+    const lowercaseCharacter = character.toLowerCase();
+
+    if (/^\d+$/.test(lowercaseCharacter)) {
+      const index = parseInt(lowercaseCharacter, 10);
+      if (index >= 0 && index < characterNames.length - 3) {
+        return characterNames[index + 3];
+      }
+    } else {
+      const matchedCharacter = characterNames.find(
+        (name) => name.toLowerCase() === lowercaseCharacter
+      );
+      if (matchedCharacter) {
+        return matchedCharacter;
+      }
+    }
+
+    return `无效的角色序号或角色名！`;
+  }
+
+  function getCharacterImagePath(characterName: string): string {
+    const imagePath = pjskListDir[`pjskListFor${characterName}Dir`];
+    if (!imagePath) {
+      return `找不到角色图像！`;
+    }
+    return imagePath;
+  }
+
+  function getCharacterImageBuffer(character: string) {
+    const characterName = getCharacterName(character);
+    if (characterName === `无效的角色序号或角色名！`) {
+      return `无效的角色序号或角色名！`;
+    }
+    const imagePath = getCharacterImagePath(characterName);
+    if (imagePath === `找不到角色图像！`) {
+      return `找不到角色图像！`;
+    }
+    return fs.readFileSync(imagePath);
+  }
+
   function calculateOffsets(longestLine: string, options: any): { x: number; y: number } {
     const offsets = {x: 0, y: 0};
 
     if (options.curve) {
       if (longestLine.length <= 5) {
-        offsets.x = -60;
-        offsets.y = containsChinese(longestLine) ? 260 : 380;
+        offsets.x = -20;
+        offsets.y = 200;
       } else {
-        offsets.x = -60;
-        offsets.y = containsChinese(longestLine) ? 200 : 180;
+        if (longestLine.length >= 8) {
+          offsets.x = containsChinese(longestLine) ? -30 : -60;
+          offsets.y = containsChinese(longestLine) ? 100 : 150;
+        } else {
+          offsets.x = -60;
+          offsets.y = containsChinese(longestLine) ? 130 : 150;
+        }
+
       }
     }
 
@@ -205,19 +648,21 @@ export function apply(ctx: Context, config: Config) {
     if (containsChinese(longestLine)) {
       if (containsEnglishLetter(longestLine) && longestLine.length > 3) {
         const englishLetterCount = countEnglishLetters(longestLine);
-        return 278 / (longestLine.length - englishLetterCount / 2) - 2;
+        return 278 / (longestLine.length) + englishLetterCount;
       } else if (longestLine.length > 3) {
         if (longestLine.length > 4) {
           return 278 / longestLine.length;
         }
         return 278 / longestLine.length - 12;
       } else {
-        return specifiedFontSize + 10 * (3 - longestLine.length);
+        return specifiedFontSize + 10 * (3 - longestLine.length) + 12;
       }
     } else {
-      return longestLine.length > 4
-        ? 278 / longestLine.length + 3
-        : 278 / (longestLine.length + (longestLine.length > 2 ? 1 : 4 - longestLine.length));
+      return longestLine.length > 6
+        ? 278 / longestLine.length + 10.5
+        : longestLine.length > 4
+          ? 278 / longestLine.length + 3
+          : 278 / (longestLine.length + (longestLine.length > 2 ? 1 : 4 - longestLine.length));
     }
   }
 
@@ -519,11 +964,6 @@ export function apply(ctx: Context, config: Config) {
     await context.close()
 
     return buffer;
-  }
-
-  function getRandomCharacter(characters: any[]): any {
-    const randomIndex = Math.floor(Math.random() * characters.length);
-    return characters[randomIndex];
   }
 
   function countEnglishLetters(text: string): number {

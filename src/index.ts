@@ -52,7 +52,7 @@ export const Config: Schema<Config> = Schema.intersect([
     Schema.object({
       isEnableQQOfficialRobotMarkdownTemplate: Schema.const(true).required(),
       customTemplateId: Schema.string().default('').description(`自定义模板 ID。`),
-      key: Schema.string().default('').description(`文本内容中特定插值的 key，用于存放文本。`),
+      key: Schema.string().default('').description(`文本内容中特定插值的 key，用于存放文本。如果你的插值为 {{.info}}，那么请在这里填 info。`),
       // key2: Schema.string().default('').description(`发送图片信息的特定插值的 key，用于存放图片的宽高。与下面的 key3 联动，Markdown 源码中形如：{{.key2}}{{.key3}}。`),
       // key3: Schema.string().default('').description(`发送图片URL的特定插值的 key，用于存放图片的URL。`),
       numberOfMessageButtonsPerRow: Schema.number().min(3).max(5).default(3).description(`每行消息按钮的数量。`),

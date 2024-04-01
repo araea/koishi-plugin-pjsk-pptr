@@ -6,10 +6,13 @@ import * as fs from "fs";
 
 export const name = 'pjsk-pptr'
 export const inject = ['puppeteer']
-export const usage = `## 🎮 使用
+export const usage = `
+## 🎮 使用
 
-- 启动 puppeteer 服务
-- 建议为指令添加指令别名
+- 启动 puppeteer 服务。
+- 建议为指令添加指令别名。
+- 使用 \`pjsk.列表.角色分类\` 指令可触发表情包绘制引导。
+- 使用 \`pjsk.绘制 [文本]\` 指令可直接绘制表情包。
 
 ## ⚙️ 配置
 
@@ -17,21 +20,24 @@ export const usage = `## 🎮 使用
 
 ## 📝 命令
 
-- \`pjsk.列表\` - 显示可用的表情包列表
+- \`pjsk.列表\` - 显示可用的表情包列表。
 - \`pjsk.绘制 [inputText:text]\` - 将自定义文本渲染到随机或指定的表情包中，使用 / 可以换行。
-  - \`-n\` - 指定表情包 ID
-  - \`-y\` - 指定文本垂直位置
-  - \`-x\` - 指定文本水平位置
-  - \`-r\` - 指定文本旋转角度
-  - \`-s\` - 指定文本字体大小
-  - \`-c\` - 是否启用文本曲线
-  - \`--space\` - 指定文本行间距`
+  - \`-n\` - 指定表情包 ID。
+  - \`-y\` - 指定文本垂直位置。
+  - \`-x\` - 指定文本水平位置。
+  - \`-r\` - 指定文本旋转角度。
+  - \`-s\` - 指定文本字体大小（自适应时不生效）。
+  - \`-c\` - 是否启用文本曲线。
+  - \`--space\` - 指定文本行间距。
+- \`pjsk.调整\` - 调整绘制成功的表情相关指令。`
 
 const logger = new Logger('PJSK')
 
 // pz* pzx*
 export interface Config {
   isTextSizeAdaptationEnabled: boolean
+  shouldSendDrawingGuideText: boolean
+  shouldSendSuccessMessageAfterDrawingEmoji: boolean
   retractDelay: number
 
   isEnableQQOfficialRobotMarkdownTemplate: boolean
@@ -44,7 +50,9 @@ export interface Config {
 
 export const Config: Schema<Config> = Schema.intersect([
   Schema.object({
-    isTextSizeAdaptationEnabled: Schema.boolean().default(true).description('是否启用文本大小自适应'),
+    isTextSizeAdaptationEnabled: Schema.boolean().default(true).description('是否启用文本大小自适应。'),
+    shouldSendDrawingGuideText: Schema.boolean().default(true).description('（QQ 官方机器人自动开启）是否发送提示文本信息，当开启后，将会发送引导用户绘制表情包的提示文本信息。'),
+    shouldSendSuccessMessageAfterDrawingEmoji: Schema.boolean().default(true).description(`（QQ 官方机器人自动开启）是否发送绘制表情包成功的提示信息，即 \`🎉 表情包绘制完成！\`。`),
     retractDelay: Schema.number().min(0).default(0).description(`（暂不支持 QQ 官方机器人）自动撤回等待的时间，单位是秒。值为 0 时不启用自动撤回功能。`),
     isEnableQQOfficialRobotMarkdownTemplate: Schema.boolean().default(false).description(`是否启用 QQ 官方机器人的 Markdown 模板，带消息按钮。`),
   }),
@@ -197,16 +205,16 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({session}) => {
       const buffer = fs.readFileSync(pjskListDir['pjskListForcharacterListWithIndexDir']);
       await sendMessage(session, h.image(buffer, 'image/jpeg'), ``, 1570, 1637)
-      if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
+      if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq' || config.shouldSendDrawingGuideText) {
         await sendMessage(session, `查看指定角色的表情，请输入：
 > 角色序号，例如：10
 > 角色名，例如：Emu`, `输入角色序号或名称`)
       }
       const userInput = await session.prompt()
-      if (!userInput) return isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq' ? await sendMessage(session, `输入无效或超时！`, ``) : noop()
+      if (!userInput) return isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq' || config.shouldSendDrawingGuideText ? await sendMessage(session, `输入无效或超时！`, ``) : noop()
       const character = getCharacterName(userInput);
       if (character === `无效的角色序号或角色名！` || character === `找不到角色图像！`) {
-        return isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq' ? await sendMessage(session, `无效的角色序号或角色名！`, `表情包列表 角色分类`) : noop()
+        return isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq' || config.shouldSendDrawingGuideText ? await sendMessage(session, `无效的角色序号或角色名！`, `表情包列表 角色分类`) : noop()
       } else {
         await session.execute(`pjsk.列表.展开指定角色 ${character}`)
       }
@@ -613,8 +621,8 @@ export function apply(ctx: Context, config: Config) {
       }
       const buffer = await draw(text, imgPath, specifiedX, specifiedY, specifiedRotate, specifiedFontSize, color, curve, spaceSize, angle)
       await sendMessage(session, h.image(buffer, 'image/png'), ``, 296, 256)
-      if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
-        return await sendMessage(session, `🎉 表情包绘制完成！`, `修改文本 字体变大 字体变小 修改角色 行间距变大 行间距变小 随机角色 开启曲线 关闭曲线 随机绘制 文本上移 文本下移 自选绘制 文本左移 文本右移`)
+      if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq' || config.shouldSendSuccessMessageAfterDrawingEmoji) {
+        return await sendMessage(session, `🎉 表情包绘制完成！${!(isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') ? `\n\n🔍 输入"pjsk.调整"获取调整指令\n或直接输入"pjsk.列表.角色分类"开始新的绘制\n\n✨ 期待您的下一个创作！` : ''}`, `修改文本 字体变大 字体变小 修改角色 行间距变大 行间距变小 随机角色 开启曲线 关闭曲线 随机绘制 文本上移 文本下移 自选绘制 文本左移 文本右移`)
       }
     })
 
@@ -735,7 +743,7 @@ export function apply(ctx: Context, config: Config) {
   }
 
   async function processUserInput(session: any) {
-    if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
+    if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq' || config.shouldSendDrawingGuideText) {
       await sendMessage(session, `请选择您中意的表情 ID，
 并按以下格式进行绘制：
 > 表情包序号 文本内容
@@ -1269,6 +1277,7 @@ export function apply(ctx: Context, config: Config) {
       const oldestMessageId = sentMessages.shift();
       setTimeout(async () => {
         if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
+          noop();
         } else {
           await bot.deleteMessage(channelId, oldestMessageId);
 

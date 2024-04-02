@@ -39,13 +39,14 @@ export interface Config {
   shouldSendDrawingGuideText: boolean
   shouldSendSuccessMessageAfterDrawingEmoji: boolean
   retractDelay: number
-
+  shouldMentionUserInMessage: boolean
   isEnableQQOfficialRobotMarkdownTemplate: boolean
   customTemplateId: string
   key: string
-  key2: string
-  key3: string
+  // key2: string
+  // key3: string
   numberOfMessageButtonsPerRow: number
+  shouldPrefixAtForMarkdownMessage: boolean
 }
 
 export const Config: Schema<Config> = Schema.intersect([
@@ -53,6 +54,7 @@ export const Config: Schema<Config> = Schema.intersect([
     isTextSizeAdaptationEnabled: Schema.boolean().default(true).description('是否启用文本大小自适应。'),
     shouldSendDrawingGuideText: Schema.boolean().default(true).description('（QQ 官方机器人自动开启）是否发送提示文本信息，当开启后，将会发送引导用户绘制表情包的提示文本信息。'),
     shouldSendSuccessMessageAfterDrawingEmoji: Schema.boolean().default(true).description(`（QQ 官方机器人自动开启）是否发送绘制表情包成功的提示信息，即 \`🎉 表情包绘制完成！\`。`),
+    shouldMentionUserInMessage: Schema.boolean().default(false).description(`（非 QQ 官方机器人）是否在消息中 @ 用户。`),
     retractDelay: Schema.number().min(0).default(0).description(`（暂不支持 QQ 官方机器人）自动撤回等待的时间，单位是秒。值为 0 时不启用自动撤回功能。`),
     isEnableQQOfficialRobotMarkdownTemplate: Schema.boolean().default(false).description(`是否启用 QQ 官方机器人的 Markdown 模板，带消息按钮。`),
   }),
@@ -64,6 +66,7 @@ export const Config: Schema<Config> = Schema.intersect([
       // key2: Schema.string().default('').description(`发送图片信息的特定插值的 key，用于存放图片的宽高。与下面的 key3 联动，Markdown 源码中形如：{{.key2}}{{.key3}}。`),
       // key3: Schema.string().default('').description(`发送图片URL的特定插值的 key，用于存放图片的URL。`),
       numberOfMessageButtonsPerRow: Schema.number().min(3).max(5).default(3).description(`每行消息按钮的数量。`),
+      shouldPrefixAtForMarkdownMessage: Schema.boolean().default(false).description(`是否在 Markdown 消息的文本前加上一行 @用户。`),
     }),
     Schema.object({}),
   ]),
@@ -1240,6 +1243,11 @@ export function apply(ctx: Context, config: Config) {
         // });
         // messageId = result2.id;
       } else {
+        if (config.shouldPrefixAtForMarkdownMessage) {
+          message = `<@${session.userId}>
+${message}`;
+        }
+
         message = message.replace(/\n/g, '\r');
 
         const result = await session.qq.sendMessage(session.channelId, {
@@ -1267,6 +1275,9 @@ export function apply(ctx: Context, config: Config) {
 
 
     } else {
+      if (config.shouldMentionUserInMessage && !String(message).includes('img')) {
+        message = h.at(session.userId) + ' ~ \n' + message;
+      }
       [messageId] = await session.send(message);
     }
 
@@ -1277,6 +1288,7 @@ export function apply(ctx: Context, config: Config) {
       const oldestMessageId = sentMessages.shift();
       setTimeout(async () => {
         if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
+          // db*
           noop();
         } else {
           await bot.deleteMessage(channelId, oldestMessageId);

@@ -55,7 +55,7 @@ export const Config: Schema<Config> = Schema.intersect([
     shouldSendDrawingGuideText: Schema.boolean().default(true).description('（QQ 官方机器人自动开启）是否发送提示文本信息，当开启后，将会发送引导用户绘制表情包的提示文本信息。'),
     shouldSendSuccessMessageAfterDrawingEmoji: Schema.boolean().default(true).description(`（QQ 官方机器人自动开启）是否发送绘制表情包成功的提示信息，即 \`🎉 表情包绘制完成！\`。`),
     shouldMentionUserInMessage: Schema.boolean().default(false).description(`（非 QQ 官方机器人）是否在消息中 @ 用户。`),
-    retractDelay: Schema.number().min(0).default(0).description(`（暂不支持 QQ 官方机器人）自动撤回等待的时间，单位是秒。值为 0 时不启用自动撤回功能。`),
+    retractDelay: Schema.number().min(0).default(0).description(`自动撤回等待的时间，单位是秒。值为 0 时不启用自动撤回功能。`),
     isEnableQQOfficialRobotMarkdownTemplate: Schema.boolean().default(false).description(`是否启用 QQ 官方机器人的 Markdown 模板，带消息按钮。`),
   }),
   Schema.union([
@@ -1287,13 +1287,7 @@ ${message}`;
     if (sentMessages.length > 1) {
       const oldestMessageId = sentMessages.shift();
       setTimeout(async () => {
-        if (isQQOfficialRobotMarkdownTemplateEnabled && session.platform === 'qq') {
-          // db*
-          noop();
-        } else {
-          await bot.deleteMessage(channelId, oldestMessageId);
-
-        }
+        await bot.deleteMessage(channelId, oldestMessageId);
       }, config.retractDelay * 1000);
     }
   }

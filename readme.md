@@ -48,6 +48,14 @@ npm i koishi-plugin-pjsk-stickers-maker-pptr
 - [st.ayaka.one](https://st.ayaka.one/) - 提供 Project SEKAI 表情包的网站 🎀
 - [sekai-stickers](https://github.com/TheOriginalAyaka/sekai-stickers) - 提供 Project SEKAI 表情包的仓库 📦
 
-## 📄 License
+## 🐱 QQ 群
+
+- 956758505
+
+## ✨ License
 
 MIT License © 2024
+
+希望您喜欢这款插件！ 💫
+
+如有任何问题或建议，欢迎联系我哈~ 🎈

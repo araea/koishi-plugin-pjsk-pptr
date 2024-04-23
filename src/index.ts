@@ -52,6 +52,7 @@ export interface Config {
   // key3: string
   numberOfMessageButtonsPerRow: number
   shouldPrefixAtForMarkdownMessage: boolean
+  shouldWaitForUserInputBeforeSendingCommands: boolean
 }
 
 export const Config: Schema<Config> = Schema.intersect([
@@ -72,6 +73,7 @@ export const Config: Schema<Config> = Schema.intersect([
       // key3: Schema.string().default('').description(`发送图片URL的特定插值的 key，用于存放图片的URL。`),
       numberOfMessageButtonsPerRow: Schema.number().min(3).max(5).default(3).description(`每行消息按钮的数量。`),
       shouldPrefixAtForMarkdownMessage: Schema.boolean().default(false).description(`是否在 Markdown 消息的文本前加上一行 @用户。`),
+      shouldWaitForUserInputBeforeSendingCommands: Schema.boolean().default(false).description(`是否在点击“随机绘制”按钮后等待用户输入。`),
     }),
     Schema.object({}),
   ]),
@@ -726,6 +728,11 @@ export function apply(ctx: Context, config: Config) {
           break;
       }
 
+      let array = ['指定角色', '输入', '修改角色', '修改文本', '输入角色序号或名称']
+      if (config.shouldWaitForUserInputBeforeSendingCommands) {
+        array.push('随机绘制')
+      }
+
       return {
         render_data: {
           label: command,
@@ -736,7 +743,7 @@ export function apply(ctx: Context, config: Config) {
           type: 2,
           permission: {type: 2},
           data: `${dataValue}`,
-          enter: !['指定角色', '输入', '修改角色', '修改文本', '输入角色序号或名称'].includes(command),
+          enter: !array.includes(command),
         },
       };
     });

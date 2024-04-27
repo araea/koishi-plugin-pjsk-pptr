@@ -232,6 +232,9 @@ export function apply(ctx: Context, config: Config) {
   // lb* js* fl*
   ctx.command('pjsk.列表.展开指定角色 <character:string>', '展开指定角色表情列表')
     .action(async ({session}, character) => {
+      if (!character) {
+        return await sendMessage(session, `请输入有效的角色序号或角色名！`, `表情包列表 角色分类`)
+      }
       const imageBuffer = getCharacterImageBuffer(character);
       if (imageBuffer === `无效的角色序号或角色名！` || imageBuffer === `找不到角色图像！`) {
         return await sendMessage(session, imageBuffer, `表情包列表 指定角色`)
@@ -274,6 +277,9 @@ export function apply(ctx: Context, config: Config) {
   // tz* wb*
   ctx.command('pjsk.调整.文本 <textContent:text>', '修改文本内容')
     .action(async ({session}, textContent) => {
+      if (!textContent) {
+        return await sendMessage(session, `请输入有效的文本内容！`, `随机绘制 自选绘制`)
+      }
       const userRecord = await ctx.database.get('pjsk', {userId: session.userId})
       if (userRecord.length === 0) {
         return await sendMessage(session, `抱歉，您尚未绘制过表情包。`, `随机绘制 自选绘制`)
@@ -511,6 +517,9 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({session, options}, characterId) => {
       if (options.random) {
         characterId = Math.floor(Math.random() * characters.length)
+      }
+      if (!characterId) {
+        return await sendMessage(session, `请输入有效的表情 ID！`, `随机绘制 自选绘制`)
       }
       if (characterId < 0 || characterId >= characters.length) {
         return await sendMessage(session, `抱歉，您输入的表情 ID 无效，请输入范围在 0 到 358 之间的有效表情 ID。`, `修改角色 随机角色`)

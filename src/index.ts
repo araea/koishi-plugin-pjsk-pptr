@@ -5,7 +5,9 @@ import path from 'path';
 import * as fs from "fs";
 
 export const name = 'pjsk-pptr'
-export const inject = ['puppeteer']
+export const inject = {
+  required: ['puppeteer', 'database']
+}
 export const usage = `
 ## 🎮 使用
 

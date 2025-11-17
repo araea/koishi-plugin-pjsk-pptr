@@ -1083,7 +1083,7 @@ export function apply(ctx: Context, config: Config) {
  window.onload = () => {
       const canvas = document.getElementById("myCanvas");
       const context = canvas.getContext('2d');
-      const text = '${text}';
+      const text = decodeURIComponent('${encodeURIComponent(text)}');
       const x = ${specifiedX};
       const y = ${specifiedY};
       const rotate = ${specifiedRotate};
@@ -1312,5 +1312,3 @@ ${message}`;
     }
   }
 }
-
-

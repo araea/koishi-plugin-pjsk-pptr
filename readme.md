@@ -51,6 +51,9 @@ Koishi 的 Project SEKAI 表情包绘制插件。通过自定义文本绘制各�
 * [yunkuangao](https://github.com/yunkuangao) - 文件移动指导
 * [st.ayaka.one](https://st.ayaka.one/) - 表情包资源
 * [sekai-stickers](https://github.com/TheOriginalAyaka/sekai-stickers) - 表情包资源
+* 感谢 [@nick-cjyx9](https://github.com/nick-cjyx9) 的安全洞见
+  修复了本地文件读取与内网 SSRF 隐患
+  建议采用安全参数传递与输入过滤
 
 ## QQ 群
 

@@ -1083,18 +1083,18 @@ export function apply(ctx: Context, config: Config) {
  window.onload = () => {
       const canvas = document.getElementById("myCanvas");
       const context = canvas.getContext('2d');
-      const text = decodeURIComponent('${encodeURIComponent(text)}');
-      const x = ${specifiedX};
-      const y = ${specifiedY};
+      const text = ${JSON.stringify(text).replace(/</g, '\\u003c')};
+      const x = ${Number(specifiedX)};
+      const y = ${Number(specifiedY)};
       const rotate = ${specifiedRotate};
-      const fontSize = '${specifiedFontSize}';
-      const color = '${color}'
+      const fontSize = ${JSON.stringify(String(specifiedFontSize))};
+      const color = ${JSON.stringify(color)};
       const curve = ${curve};
       const position = { x, y }
       const spaceSize = ${spaceSize};
       let angle = ${angle};
       const img = new Image();
-      img.src = '${imgPath}';
+      img.src = ${JSON.stringify(imgPath)};
 
       img.onload = () => {
         draw(context)

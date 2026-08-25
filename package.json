@@ -1,17 +1,22 @@
 {
   "name": "koishi-plugin-pjsk-pptr",
   "description": "Koishi 的 Project SEKAI 表情包绘制插件。",
-  "version": "1.1.9",
+  "version": "1.2.0",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
     "lib",
-    "dist"
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
   ],
   "koishi": {
+    "description": {
+      "zh": "Koishi 的 Project SEKAI 表情包绘制插件。"
+    },
     "service": {
       "required": [
-        "puppeteer"
+        "puppeteer",
+        "database"
       ]
     }
   },
@@ -40,5 +45,8 @@
   },
   "devDependencies": {
     "koishi-plugin-puppeteer": "^3.9.0"
+  },
+  "scripts": {
+    "yakumo:after:esbuild": "node scripts/copy-assets.mjs"
   }
 }

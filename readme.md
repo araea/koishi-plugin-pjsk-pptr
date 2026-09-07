@@ -1,44 +1,28 @@
-koishi-plugin-pjsk-pptr
-========================
+# koishi-plugin-pjsk-pptr
 
-[<img alt="github" src="https://img.shields.io/badge/github-araea/koishi__plugin__pjsk__pptr-8da0cb?style=for-the-badge&labelColor=555555&logo=github" height="20">](https://github.com/araea/koishi-plugin-pjsk-pptr)
-[<img alt="npm" src="https://img.shields.io/npm/v/koishi-plugin-pjsk-pptr.svg?style=for-the-badge&color=fc8d62&logo=npm" height="20">](https://www.npmjs.com/package/koishi-plugin-pjsk-pptr)
+Project SEKAI 表情包绘制插件。
 
-Koishi 的 Project SEKAI 表情包绘制插件。
+## 安装
 
-## 使用
+~~~sh
+yarn add koishi-plugin-pjsk-pptr
+~~~
 
-`pjsk.绘制 <文本>` 绘制表情包，`/` 换行。`-n <ID>` 指定表情，缺省随机。
+在 Koishi 配置中启用 koishi-plugin-pjsk-pptr，并提供 puppeteer 和 database 服务。
 
 ## 指令
 
 | 指令 | 说明 |
 | --- | --- |
-| `pjsk.绘制 <文本>` | 绘制表情包 |
-| `pjsk.列表.全部` | 全部表情 |
-| `pjsk.列表.角色分类` | 按角色分类 |
-| `pjsk.列表.展开指定角色 <角色>` | 展开角色表情 |
-| `pjsk.调整` | 微调上一张图 |
+| pjsk.绘制 &lt;文本&gt; | 绘制表情包，/ 表示换行 |
+| pjsk.列表.全部 | 查看全部表情 |
+| pjsk.列表.角色分类 | 按角色分类 |
+| pjsk.列表.展开指定角色 &lt;角色&gt; | 查看指定角色表情 |
+| pjsk.调整 | 微调上一张图片 |
 
-常用参数：`-x` / `-y` 位置，`-r` 旋转，`-s` 字号，`-l` 行间距，`-c` 文本曲线。
+可用参数：-n &lt;ID&gt; 指定表情；-x、-y 调整位置；-r 旋转；-s 字号；
+-l 行间距；-c 文本曲线。
 
-## QQ 群
+## 许可证
 
-956758505
-
-<br>
-
-#### License
-
-<sup>
-Licensed under either of <a href="LICENSE-APACHE">Apache License, Version
-2.0</a> or <a href="LICENSE-MIT">MIT license</a> at your option.
-</sup>
-
-<br>
-
-<sub>
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in this crate by you, as defined in the Apache-2.0 license, shall
-be dual licensed as above, without any additional terms or conditions.
-</sub>
+可按 [Apache-2.0](LICENSE-APACHE) 或 [MIT](LICENSE-MIT) 使用。

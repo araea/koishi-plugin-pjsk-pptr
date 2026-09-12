@@ -10,7 +10,7 @@ export const inject = ['puppeteer', 'database']
 
 export const usage = `## 使用
 
-\`pjsk.绘制 <文本>\` 绘制表情包，\`/\` 换行。\`-n <ID>\` 指定表情，缺省随机。
+\`pjsk.绘制 <文本>\` 绘制表情包，\`/\` 表示换行。
 
 ## 指令
 
@@ -19,10 +19,10 @@ export const usage = `## 使用
 | \`pjsk.绘制 <文本>\` | 绘制表情包 |
 | \`pjsk.列表.全部\` | 全部表情 |
 | \`pjsk.列表.角色分类\` | 按角色分类 |
-| \`pjsk.列表.展开指定角色 <角色>\` | 展开角色表情 |
-| \`pjsk.调整\` | 微调上一张图 |
+| \`pjsk.列表.展开指定角色 <角色>\` | 指定角色的表情 |
+| \`pjsk.调整\` | 微调上一张图片 |
 
-常用参数：\`-x\` / \`-y\` 位置，\`-r\` 旋转，\`-s\` 字号，\`-l\` 行间距，\`-c\` 文本曲线。`
+可用参数：\`-n <ID>\` 指定表情，缺省随机；\`-x\`、\`-y\` 调整位置，\`-r\` 旋转，\`-s\` 字号，\`-l\` 行间距，\`-c\` 文本曲线。`
 
 declare module 'koishi' {
   interface Tables {
@@ -312,7 +312,7 @@ export function apply(ctx: Context, config: Config) {
     })
 
   cmd.subcommand('.绘制 [text:text]', '绘制表情包')
-    .usage('文本里用 `/` 换行。')
+    .usage('文本中的 `/` 表示换行。')
     .example('pjsk.绘制 -n 6 你好呀')
     .option('number', '-n <id:natural> 表情包 ID')
     .option('positionX', '-x <x:number> 文本水平位置')

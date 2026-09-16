@@ -17,10 +17,15 @@ export const usage = `## 使用
 | 指令 | 说明 |
 | --- | --- |
 | \`pjsk.绘制 <文本>\` | 绘制表情包 |
-| \`pjsk.列表.全部\` | 全部表情 |
-| \`pjsk.列表.角色分类\` | 按角色分类 |
-| \`pjsk.列表.展开指定角色 <角色>\` | 指定角色的表情 |
-| \`pjsk.调整\` | 微调上一张图片 |
+| \`pjsk.列表 [角色]\` | 按角色分类；带上角色则展开它的全部表情 |
+| \`pjsk.列表 -a\` | 一次列出全部表情包 |
+| \`pjsk.调整\` | 查看可用的调整指令 |
+| \`pjsk.调整.文本 <内容>\` | 修改文本内容 |
+| \`pjsk.调整.字号 <大/小>\` | 字号增减 |
+| \`pjsk.调整.行距 <大/小>\` | 行间距增减 |
+| \`pjsk.调整.位置 <上/下/左/右>\` | 移动文本 |
+| \`pjsk.调整.曲线 <开/关>\` | 开关文本曲线 |
+| \`pjsk.调整.角色 [ID]\` | 更换角色 |
 
 可用参数：\`-n <ID>\` 指定表情，缺省随机；\`-x\`、\`-y\` 调整位置，\`-r\` 旋转，\`-s\` 字号，\`-l\` 行间距，\`-c\` 文本曲线。`
 
@@ -53,19 +58,32 @@ const LIMITS = {
   spaceSize: { min: 18, max: 100, label: '文本上下行间距' },
 } as const
 
-/** `pjsk.调整.*` 的增量操作表：一个字段加上一个增量。 */
-const ADJUSTMENTS: Record<string, { field: keyof PJSK; delta: number; description: string }> = {
-  '字体.大': { field: 'fontSize', delta: 5, description: '字体变大' },
-  '字体.小': { field: 'fontSize', delta: -5, description: '字体变小' },
-  '行间距.大': { field: 'spaceSize', delta: 5, description: '行间距变大' },
-  '行间距.小': { field: 'spaceSize', delta: -5, description: '行间距变小' },
-  '位置.上': { field: 'y', delta: -20, description: '文本上移' },
-  '位置.下': { field: 'y', delta: 20, description: '文本下移' },
-  '位置.左': { field: 'x', delta: -20, description: '文本左移' },
-  '位置.右': { field: 'x', delta: 20, description: '文本右移' },
+/**
+ * `pjsk.调整.*` 的增量操作表。
+ *
+ * 每一项是「一条三级指令 + 一个方向参数」，而不是再往下长一级子指令：
+ * 指令树到三级为止，第四级的东西一律降成参数。
+ */
+interface Adjustment {
+  field: keyof PJSK
+  /** 方向词 -> 增量。参数只认这张表里的键。 */
+  steps: Record<string, number>
+  hint: string
 }
 
-const ADJUSTMENT_GROUPS = ['字体', '行间距', '位置'] as const
+const ADJUSTMENTS: Record<string, Adjustment> = {
+  字号: { field: 'fontSize', steps: { 大: 5, 小: -5 }, hint: '大 / 小' },
+  行距: { field: 'spaceSize', steps: { 大: 5, 小: -5 }, hint: '大 / 小' },
+  位置: { field: 'x', steps: {}, hint: '上 / 下 / 左 / 右' },
+}
+
+/** 位置要同时动 x 与 y，单独一张表。 */
+const MOVES: Record<string, { field: keyof PJSK; delta: number }> = {
+  上: { field: 'y', delta: -20 },
+  下: { field: 'y', delta: 20 },
+  左: { field: 'x', delta: -20 },
+  右: { field: 'x', delta: 20 },
+}
 
 const hasChinese = (text: string) => /[一-龥]/.test(text)
 const countLetters = (text: string) => (text.match(/[a-zA-Z]/g) ?? []).length
@@ -162,7 +180,7 @@ export function apply(ctx: Context, config: Config) {
     await remember(session, characterId, final)
     await send(session, h.image(await draw(final), 'image/png'))
     if (config.shouldSendSuccessMessageAfterDrawingEmoji) {
-      await send(session, '✅ 表情包绘制完成。\n发送「pjsk.调整」接着微调，或发送「pjsk.列表.角色分类」换一张。')
+      await send(session, '✅ 表情包绘制完成。\n发送「pjsk.调整」接着微调，或发送「pjsk.列表」换一张。')
     }
   }
 
@@ -206,40 +224,34 @@ export function apply(ctx: Context, config: Config) {
       await session.execute('help pjsk')
     })
 
-  cmd.subcommand('.列表', '查看表情包列表')
-    .action(async ({ session }) => {
-      return send(session, '📋 表情包列表\n• pjsk.列表.全部\n• pjsk.列表.角色分类\n• pjsk.列表.展开指定角色 [角色序号或角色名]')
-    })
+  cmd.subcommand('.列表 [character:string]', '查看表情包列表')
+    .usage(`不带参数按角色分类；带上角色展开它的全部表情。可用角色：${NAMES.join(' / ')}`)
+    .option('all', '-a 一次列出全部表情包')
+    .example('pjsk.列表 Emu')
+    .action(async ({ session, options }, input) => {
+      if (options.all) {
+        await send(session, h.image(listImage(OVERVIEWS[0]), 'image/jpeg'))
+        return promptForSticker(session)
+      }
 
-  cmd.subcommand('.列表.全部', '查看全部表情包')
-    .action(async ({ session }) => {
-      await send(session, h.image(listImage(OVERVIEWS[0]), 'image/jpeg'))
-      await promptForSticker(session)
-    })
+      // 带了角色就直接展开，省掉一次追问
+      if (input) {
+        const character = resolveName(input)
+        const image = character && listImage(character)
+        if (!image) return send(session, '⚠️ 认不出这个角色\n发送「pjsk.列表」看可用的角色。')
+        await send(session, h.image(image, 'image/jpeg'))
+        return promptForSticker(session)
+      }
 
-  cmd.subcommand('.列表.角色分类', '按角色查看表情包')
-    .action(async ({ session }) => {
       await send(session, h.image(listImage(OVERVIEWS[1]), 'image/jpeg'))
-      if (config.shouldSendDrawingGuideText) {
-        await send(session, '💡 发送角色序号（如 10）或角色名（如 Emu）。')
-      }
-      const input = await session.prompt()
-      if (!input) return config.shouldSendDrawingGuideText ? send(session, '⏳ 没有等到有效的角色，这次先作罢。') : undefined
-      const character = resolveName(input)
-      if (!character) {
-        return config.shouldSendDrawingGuideText ? send(session, '⚠️ 认不出这个角色\n发送「pjsk.列表.角色分类」看可用的角色。') : undefined
-      }
-      await session.execute(`pjsk.列表.展开指定角色 ${character}`)
-    })
-
-  cmd.subcommand('.列表.展开指定角色 <character:string>', '展开指定角色的表情包')
-    .usage(`可用角色：${NAMES.join(' / ')}`)
-    .action(async ({ session }, input) => {
-      const character = resolveName(input)
-      const image = character && listImage(character)
-      if (!image) return send(session, '⚠️ 认不出这个角色\n发送「pjsk.列表.角色分类」看可用的角色。')
-      await send(session, h.image(image, 'image/jpeg'))
-      await promptForSticker(session)
+      if (!config.shouldSendDrawingGuideText) return
+      await send(session, '💡 发送角色序号（如 10）或角色名（如 Emu）展开，或发送「取消」。')
+      const reply = await session.prompt()
+      if (!reply) return send(session, '⏳ 没有等到角色，这次先作罢。')
+      if (reply.trim() === '取消') return send(session, '✅ 已取消。')
+      const character = resolveName(reply)
+      if (!character) return send(session, '⚠️ 认不出这个角色\n发送「pjsk.列表」看可用的角色。')
+      await session.execute(`pjsk.列表 ${character}`)
     })
 
   cmd.subcommand('.调整', '微调上一张表情包')
@@ -247,11 +259,11 @@ export function apply(ctx: Context, config: Config) {
       if (!await lastRecord(session)) return
       return send(session, [
         '📋 可用的调整指令',
-        '• pjsk.调整.文本 [文本内容]',
-        '• pjsk.调整.字体.大 / .小',
-        '• pjsk.调整.行间距.大 / .小',
-        '• pjsk.调整.文本曲线.开启 / .关闭',
-        '• pjsk.调整.位置.上 / .下 / .左 / .右',
+        '• pjsk.调整.文本 <文本内容>',
+        '• pjsk.调整.字号 <大 / 小>',
+        '• pjsk.调整.行距 <大 / 小>',
+        '• pjsk.调整.位置 <上 / 下 / 左 / 右>',
+        '• pjsk.调整.曲线 <开 / 关>',
         '• pjsk.调整.角色 [表情包 ID]',
       ].join('\n'))
     })
@@ -265,18 +277,17 @@ export function apply(ctx: Context, config: Config) {
       await render(session, record.characterId, { ...fromRecord(record), text: normalize(content) }, true)
     })
 
-  // 三个分组入口 + 八个「变大变小 / 上下左右」，共用同一段实现
-  for (const group of ADJUSTMENT_GROUPS) {
-    cmd.subcommand(`.调整.${group}`, `调整${group}`)
-      .action(({ session }) => {
-        const items = Object.entries(ADJUSTMENTS).filter(([suffix]) => suffix.startsWith(`${group}.`))
-        return send(session, `📋 可用的调整指令\n${items.map(([suffix, item]) => `• pjsk.调整.${suffix} — ${item.description}`).join('\n')}`)
-      })
-  }
-
-  for (const [suffix, { field, delta, description }] of Object.entries(ADJUSTMENTS)) {
-    cmd.subcommand(`.调整.${suffix}`, description)
-      .action(async ({ session }) => {
+  // 字号与行距：同一条指令，方向作参数
+  for (const name of ['字号', '行距'] as const) {
+    const { field, steps, hint } = ADJUSTMENTS[name]
+    cmd.subcommand(`.调整.${name} <direction:string>`, `${name}变大或变小`)
+      .usage(`参数为 ${hint}。`)
+      .example(`pjsk.调整.${name} 大`)
+      .action(async ({ session }, direction) => {
+        const delta = steps[direction?.trim()]
+        if (delta === undefined) {
+          return send(session, `⚠️ 认不出这个方向\n可用 ${hint}，例：「pjsk.调整.${name} 大」。`)
+        }
         const record = await lastRecord(session)
         if (!record) return
         const value = (record[field] as number) + delta
@@ -284,15 +295,34 @@ export function apply(ctx: Context, config: Config) {
       })
   }
 
-  for (const [suffix, curve] of [['开启', true], ['关闭', false]] as const) {
-    cmd.subcommand(`.调整.文本曲线.${suffix}`, `${suffix}文本曲线`)
-      .action(async ({ session }) => {
-        const record = await lastRecord(session)
-        if (!record) return
-        // 曲线开关会大幅改变排版，交回自适应重算
-        await render(session, record.characterId, { ...fromRecord(record), curve }, true)
-      })
-  }
+  cmd.subcommand('.调整.位置 <direction:string>', '上下左右移动文本')
+    .usage('参数为 上 / 下 / 左 / 右。')
+    .example('pjsk.调整.位置 上')
+    .action(async ({ session }, direction) => {
+      const move = MOVES[direction?.trim()]
+      if (!move) {
+        return send(session, '⚠️ 认不出这个方向\n可用 上 / 下 / 左 / 右，例：「pjsk.调整.位置 上」。')
+      }
+      const record = await lastRecord(session)
+      if (!record) return
+      const value = (record[move.field] as number) + move.delta
+      await render(session, record.characterId, { ...fromRecord(record), [move.field]: value }, false)
+    })
+
+  cmd.subcommand('.调整.曲线 <state:string>', '开关文本曲线')
+    .usage('参数为 开 / 关。')
+    .example('pjsk.调整.曲线 开')
+    .action(async ({ session }, state) => {
+      const text = state?.trim()
+      const curve = text === '开' || text === '开启'
+      if (!curve && text !== '关' && text !== '关闭') {
+        return send(session, '⚠️ 曲线开关只认「开」「关」\n例：「pjsk.调整.曲线 开」。')
+      }
+      const record = await lastRecord(session)
+      if (!record) return
+      // 曲线开关会大幅改变排版，交回自适应重算
+      await render(session, record.characterId, { ...fromRecord(record), curve }, true)
+    })
 
   cmd.subcommand('.调整.角色 [characterId:natural]', '更换表情包角色')
     .option('random', '-r 随机选择角色')
@@ -349,13 +379,16 @@ export function apply(ctx: Context, config: Config) {
 
   /** 列表发出后等用户回一句「序号 文本」。 */
   async function promptForSticker(session: Session) {
-    if (config.shouldSendDrawingGuideText) {
-      await send(session, '💡 按「表情包序号 文本内容」发送即可。例：6 你好呀')
-    }
+    if (!config.shouldSendDrawingGuideText) return
+    await send(session, '💡 按「表情包序号 文本内容」发送即可，或发送「取消」。例：6 你好呀')
     const input = await session.prompt()
-    if (!input) return
-    const [id, ...rest] = input.trim().split(/\s+/)
-    if (!/^\d+$/.test(id) || Number(id) >= CHARACTERS.length) return
+    if (!input) return send(session, '⏳ 没有等到内容，这次先作罢。')
+    const text = input.trim()
+    if (text === '取消') return send(session, '✅ 已取消。')
+    const [id, ...rest] = text.split(/\s+/)
+    if (!/^\d+$/.test(id) || Number(id) >= CHARACTERS.length) {
+      return send(session, `⚠️ 表情包序号超出范围\n可用范围是 0 到 ${CHARACTERS.length - 1}。`)
+    }
     await session.execute(`pjsk.绘制 -n ${id} ${rest.join(' ')}`)
   }
 }

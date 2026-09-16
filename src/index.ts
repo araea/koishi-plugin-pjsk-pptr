@@ -104,17 +104,29 @@ export function apply(ctx: Context, config: Config) {
   }, { primary: 'id', autoInc: true })
 
   const draw = createRenderer(ctx)
+  const logger = ctx.logger(name)
+  // 自动撤回：同一频道只保留最新一条，上一条延时撤回。
+  const lastMessage = new Map<string, { id: string; timestamp: number }>()
 
   async function send(session: Session, message: h.Fragment) {
     if (config.shouldMentionUserInMessage && typeof message === 'string') {
       message = [h.at(session.userId), ' ~\n', message]
     }
     const [messageId] = await session.send(message)
-    if (config.retractDelay && messageId) {
-      ctx.setTimeout(() => {
-        session.bot.deleteMessage(session.channelId, messageId).catch(() => {})
-      }, config.retractDelay * 1000)
+    if (!config.retractDelay || !messageId) return
+    const previous = lastMessage.get(session.channelId)
+    if (previous) {
+      const passed = Date.now() - previous.timestamp
+      // 超过两分钟的消息撤不回来，留 2 秒余量。
+      if (passed < 118000) {
+        ctx.setTimeout(() => {
+          session.bot.deleteMessage(session.channelId, previous.id).catch((error) => {
+            logger.debug('撤回消息失败：%s', error.message)
+          })
+        }, Math.max(0, config.retractDelay * 1000 - passed))
+      }
     }
+    lastMessage.set(session.channelId, { id: messageId, timestamp: Date.now() })
   }
 
   // --- 自适应排版 ---

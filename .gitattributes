@@ -4,5 +4,5 @@
 *.ico -text
 *.gif -text
 *.webp -text
-*.jpeg filter=lfs diff=lfs merge=lfs -text
-*.woff2 filter=lfs diff=lfs merge=lfs -text
+*.jpeg binary
+*.woff2 binary

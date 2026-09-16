@@ -162,7 +162,7 @@ export function apply(ctx: Context, config: Config) {
     await remember(session, characterId, final)
     await send(session, h.image(await draw(final), 'image/png'))
     if (config.shouldSendSuccessMessageAfterDrawingEmoji) {
-      await send(session, '✅ 表情包绘制完成。\n\n输入「pjsk.调整」可继续调整，或「pjsk.列表.角色分类」开始新的绘制。')
+      await send(session, '✅ 表情包绘制完成。\n发送「pjsk.调整」接着微调，或发送「pjsk.列表.角色分类」换一张。')
     }
   }
 
@@ -183,7 +183,7 @@ export function apply(ctx: Context, config: Config) {
   async function lastRecord(session: Session) {
     const [record] = await ctx.database.get('pjsk', { userId: session.userId })
     if (!record) {
-      await send(session, '⚠️ 你还没有绘制过表情包。')
+      await send(session, '💡 还没有可以调整的表情包\n发送「pjsk.绘制 你好呀」先画一张。')
       return null
     }
     return record
@@ -206,59 +206,59 @@ export function apply(ctx: Context, config: Config) {
       await session.execute('help pjsk')
     })
 
-  cmd.subcommand('.列表', '表情列表')
+  cmd.subcommand('.列表', '查看表情包列表')
     .action(async ({ session }) => {
-      return send(session, '📋 查看表情包列表：\n> pjsk.列表.全部\n> pjsk.列表.角色分类\n> pjsk.列表.展开指定角色 [角色序号或角色名]')
+      return send(session, '📋 表情包列表\n• pjsk.列表.全部\n• pjsk.列表.角色分类\n• pjsk.列表.展开指定角色 [角色序号或角色名]')
     })
 
-  cmd.subcommand('.列表.全部', '全部表情列表')
+  cmd.subcommand('.列表.全部', '查看全部表情包')
     .action(async ({ session }) => {
       await send(session, h.image(listImage(OVERVIEWS[0]), 'image/jpeg'))
       await promptForSticker(session)
     })
 
-  cmd.subcommand('.列表.角色分类', '按角色分类的表情列表')
+  cmd.subcommand('.列表.角色分类', '按角色查看表情包')
     .action(async ({ session }) => {
       await send(session, h.image(listImage(OVERVIEWS[1]), 'image/jpeg'))
       if (config.shouldSendDrawingGuideText) {
-        await send(session, '请输入角色序号（如 10）或角色名（如 Emu）。')
+        await send(session, '💡 发送角色序号（如 10）或角色名（如 Emu）。')
       }
       const input = await session.prompt()
-      if (!input) return config.shouldSendDrawingGuideText ? send(session, '⚠️ 输入无效或超时。') : undefined
+      if (!input) return config.shouldSendDrawingGuideText ? send(session, '⏳ 没有等到有效的角色，这次先作罢。') : undefined
       const character = resolveName(input)
       if (!character) {
-        return config.shouldSendDrawingGuideText ? send(session, '⚠️ 无效的角色序号或角色名。') : undefined
+        return config.shouldSendDrawingGuideText ? send(session, '⚠️ 认不出这个角色\n发送「pjsk.列表.角色分类」看可用的角色。') : undefined
       }
       await session.execute(`pjsk.列表.展开指定角色 ${character}`)
     })
 
-  cmd.subcommand('.列表.展开指定角色 <character:string>', '展开指定角色的表情列表')
+  cmd.subcommand('.列表.展开指定角色 <character:string>', '展开指定角色的表情包')
     .usage(`可用角色：${NAMES.join(' / ')}`)
     .action(async ({ session }, input) => {
       const character = resolveName(input)
       const image = character && listImage(character)
-      if (!image) return send(session, '⚠️ 无效的角色序号或角色名。')
+      if (!image) return send(session, '⚠️ 认不出这个角色\n发送「pjsk.列表.角色分类」看可用的角色。')
       await send(session, h.image(image, 'image/jpeg'))
       await promptForSticker(session)
     })
 
-  cmd.subcommand('.调整', '调整上一张表情包')
+  cmd.subcommand('.调整', '微调上一张表情包')
     .action(async ({ session }) => {
       if (!await lastRecord(session)) return
       return send(session, [
-        '📋 请使用以下指令调整表情包：',
-        '> pjsk.调整.文本 [文本内容]',
-        '> pjsk.调整.字体.大 / .小',
-        '> pjsk.调整.行间距.大 / .小',
-        '> pjsk.调整.文本曲线.开启 / .关闭',
-        '> pjsk.调整.位置.上 / .下 / .左 / .右',
-        '> pjsk.调整.角色 [角色ID]',
+        '📋 可用的调整指令',
+        '• pjsk.调整.文本 [文本内容]',
+        '• pjsk.调整.字体.大 / .小',
+        '• pjsk.调整.行间距.大 / .小',
+        '• pjsk.调整.文本曲线.开启 / .关闭',
+        '• pjsk.调整.位置.上 / .下 / .左 / .右',
+        '• pjsk.调整.角色 [表情包 ID]',
       ].join('\n'))
     })
 
   cmd.subcommand('.调整.文本 <content:text>', '修改文本内容')
     .action(async ({ session }, content) => {
-      if (!content) return send(session, '⚠️ 请输入有效的文本内容。')
+      if (!content) return send(session, '⚠️ 文本是空的\n例：「pjsk.调整.文本 你好呀」。')
       const record = await lastRecord(session)
       if (!record) return
       // 换了文本就重新自适应排版，否则字号还是按旧文本算的
@@ -270,7 +270,7 @@ export function apply(ctx: Context, config: Config) {
     cmd.subcommand(`.调整.${group}`, `调整${group}`)
       .action(({ session }) => {
         const items = Object.entries(ADJUSTMENTS).filter(([suffix]) => suffix.startsWith(`${group}.`))
-        return send(session, `请使用以下指令：\n${items.map(([suffix, item]) => `> pjsk.调整.${suffix} - ${item.description}`).join('\n')}`)
+        return send(session, `📋 可用的调整指令\n${items.map(([suffix, item]) => `• pjsk.调整.${suffix} — ${item.description}`).join('\n')}`)
       })
   }
 
@@ -301,7 +301,7 @@ export function apply(ctx: Context, config: Config) {
       if (!record) return
       const id = options.random ? Random.int(CHARACTERS.length) : characterId
       if (id === undefined || id < 0 || id >= CHARACTERS.length) {
-        return send(session, `⚠️ 请输入 0 到 ${CHARACTERS.length - 1} 之间的表情 ID。`)
+        return send(session, `⚠️ 表情包 ID 超出范围\n可用范围是 0 到 ${CHARACTERS.length - 1}。`)
       }
       const character = CHARACTERS[id]
       await render(session, id, {
@@ -314,7 +314,7 @@ export function apply(ctx: Context, config: Config) {
   cmd.subcommand('.绘制 [text:text]', '绘制表情包')
     .usage('文本中的 `/` 表示换行。')
     .example('pjsk.绘制 -n 6 你好呀')
-    .option('number', '-n <id:natural> 表情包 ID')
+    .option('number', '-n <id:natural> 表情包 ID，缺省随机')
     .option('positionX', '-x <x:number> 文本水平位置')
     .option('positionY', '-y <y:number> 文本垂直位置')
     .option('rotate', '-r <rotate:number> 文本旋转角度')
@@ -325,13 +325,13 @@ export function apply(ctx: Context, config: Config) {
       for (const [key, { min, max, label }] of Object.entries(LIMITS)) {
         const value = options[key]
         if (value !== undefined && (value < min || value > max)) {
-          return send(session, `⚠️ ${label}必须在 ${min} 到 ${max} 之间。`)
+          return send(session, `⚠️ ${label}超出范围\n可用范围是 ${min} 到 ${max}。`)
         }
       }
 
       const id = options.number ?? Random.int(CHARACTERS.length)
       if (id < 0 || id >= CHARACTERS.length) {
-        return send(session, `⚠️ 请输入 0 到 ${CHARACTERS.length - 1} 之间的表情 ID。`)
+        return send(session, `⚠️ 表情包 ID 超出范围\n可用范围是 0 到 ${CHARACTERS.length - 1}。`)
       }
 
       const character = CHARACTERS[id]
@@ -350,7 +350,7 @@ export function apply(ctx: Context, config: Config) {
   /** 列表发出后等用户回一句「序号 文本」。 */
   async function promptForSticker(session: Session) {
     if (config.shouldSendDrawingGuideText) {
-      await send(session, '请按「表情包序号 文本内容」的格式绘制。例：6 你好呀')
+      await send(session, '💡 按「表情包序号 文本内容」发送即可。例：6 你好呀')
     }
     const input = await session.prompt()
     if (!input) return

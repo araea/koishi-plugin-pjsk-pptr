@@ -190,9 +190,24 @@ export function apply(ctx: Context, config: Config) {
   async function render(session: Session, characterId: number, sticker: Sticker, adaptive: boolean) {
     const final = adaptive && config.isTextSizeAdaptationEnabled ? adapt(sticker) : sticker
     await remember(session, characterId, final)
-    await send(session, h.image(await draw(final), 'image/png'))
+    let buffer: Uint8Array | null = null
+    try {
+      buffer = await draw(final)
+    } catch (error) {
+      // 图是增强不是前提：渲染不可用时把这张表情包的参数交代清楚
+      logger.warn('图片渲染失败：%s', error.message)
+    }
+    if (!buffer) {
+      return await send(session, [
+        '❌ 图片没有渲染出来',
+        `文本：${final.text}`,
+        `角色：${CHARACTERS[characterId]?.name ?? characterId}`,
+        '详细原因见后台日志，稍后重发即可。',
+      ].join('\n'))
+    }
+    await send(session, h.image(buffer, 'image/png'))
     if (config.shouldSendSuccessMessageAfterDrawingEmoji) {
-      await send(session, '✅ 表情包绘制完成。\n发送「pjsk.调整」接着微调，或发送「pjsk.列表」换一张。')
+      await send(session, '✅ 表情包绘制完成\n发送「pjsk.调整」接着微调，或发送「pjsk.列表」换一张。')
     }
   }
 
@@ -268,15 +283,15 @@ export function apply(ctx: Context, config: Config) {
 
   cmd.subcommand('.调整', '微调上一张表情包')
     .action(async ({ session }) => {
-      if (!await lastRecord(session)) return
+      if (!await lastRecord(session)) {
+        return send(session, '💡 还没有可以调整的表情包\n画过一张之后，它就会成为可微调的那张。\n发送「pjsk.绘制 你好呀」先画一张。')
+      }
       return send(session, [
         '📋 可用的调整指令',
         '• pjsk.调整.文本 <文本内容>',
-        '• pjsk.调整.字号 <大 / 小>',
-        '• pjsk.调整.行距 <大 / 小>',
+        '• pjsk.调整.字号 <大 / 小>｜.行距 <大 / 小>',
         '• pjsk.调整.位置 <上 / 下 / 左 / 右>',
-        '• pjsk.调整.曲线 <开 / 关>',
-        '• pjsk.调整.角色 [表情包 ID]',
+        '• pjsk.调整.曲线 <开 / 关>｜.角色 [表情包 ID]',
       ].join('\n'))
     })
 
@@ -356,7 +371,7 @@ export function apply(ctx: Context, config: Config) {
   cmd.subcommand('.绘制 [text:text]', '绘制表情包')
     .usage('文本中的 `/` 表示换行。')
     .example('pjsk.绘制 -n 6 你好呀')
-    .option('number', '-n <id:natural> 表情包 ID，缺省随机')
+    .option('number', '-n <id:natural> 指定的表情包 ID')
     .option('positionX', '-x <x:number> 文本水平位置')
     .option('positionY', '-y <y:number> 文本垂直位置')
     .option('rotate', '-r <rotate:number> 文本旋转角度')

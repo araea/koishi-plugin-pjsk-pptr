@@ -1,6 +1,6 @@
 # koishi-plugin-pjsk-pptr
 
-Project SEKAI 表情包绘制
+Project SEKAI 表情包 · 逐像素复刻的角色表情绘制
 
 ## 安装
 

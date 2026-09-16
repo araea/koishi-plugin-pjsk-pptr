@@ -129,6 +129,15 @@ export function apply(ctx: Context, config: Config) {
     lastMessage.set(session.channelId, { id: messageId, timestamp: Date.now() })
   }
 
+  /** 列表图是随包发布的素材，文件不在时不发空图，回一句说明。 */
+  async function sendListImage(session: Session, name: string) {
+    const image = listImage(name)
+    if (!image) {
+      return send(session, '❌ 表情包列表没有加载出来\n素材没有随插件装上，重装插件后再试。')
+    }
+    return send(session, h.image(image, 'image/jpeg'))
+  }
+
   // --- 自适应排版 ---
 
   function longestLine(text: string) {
@@ -200,7 +209,8 @@ export function apply(ctx: Context, config: Config) {
     if (!buffer) {
       return await send(session, [
         '❌ 图片没有渲染出来',
-        `文本：${final.text}`,
+        // 文本里的换行摊成一行，回显的写法与 `pjsk.绘制` 的输入一致
+        `文本：${final.text.replace(/\n/g, ' / ')}`,
         `角色：${CHARACTERS[characterId]?.name ?? characterId}`,
         '详细原因见后台日志，稍后重发即可。',
       ].join('\n'))
@@ -228,7 +238,11 @@ export function apply(ctx: Context, config: Config) {
   async function lastRecord(session: Session) {
     const [record] = await ctx.database.get('pjsk', { userId: session.userId })
     if (!record) {
-      await send(session, '💡 还没有可以调整的表情包\n发送「pjsk.绘制 你好呀」先画一张。')
+      await send(session, [
+        '💡 还没有可以调整的表情包',
+        '画过一张之后，它就会成为可微调的那张。',
+        '发送「pjsk.绘制 你好呀」先画一张。',
+      ].join('\n'))
       return null
     }
     return record
@@ -257,20 +271,19 @@ export function apply(ctx: Context, config: Config) {
     .example('pjsk.列表 Emu')
     .action(async ({ session, options }, input) => {
       if (options.all) {
-        await send(session, h.image(listImage(OVERVIEWS[0]), 'image/jpeg'))
+        await sendListImage(session, OVERVIEWS[0])
         return promptForSticker(session)
       }
 
       // 带了角色就直接展开，省掉一次追问
       if (input) {
         const character = resolveName(input)
-        const image = character && listImage(character)
-        if (!image) return send(session, '⚠️ 认不出这个角色\n发送「pjsk.列表」看可用的角色。')
-        await send(session, h.image(image, 'image/jpeg'))
+        if (!character) return send(session, '⚠️ 认不出这个角色\n发送「pjsk.列表」看可用的角色。')
+        await sendListImage(session, character)
         return promptForSticker(session)
       }
 
-      await send(session, h.image(listImage(OVERVIEWS[1]), 'image/jpeg'))
+      await sendListImage(session, OVERVIEWS[1])
       if (!config.shouldSendDrawingGuideText) return
       await send(session, '💡 发送角色序号（如 10）或角色名（如 Emu）展开，或发送「取消」。')
       const reply = await session.prompt()
@@ -283,9 +296,7 @@ export function apply(ctx: Context, config: Config) {
 
   cmd.subcommand('.调整', '微调上一张表情包')
     .action(async ({ session }) => {
-      if (!await lastRecord(session)) {
-        return send(session, '💡 还没有可以调整的表情包\n画过一张之后，它就会成为可微调的那张。\n发送「pjsk.绘制 你好呀」先画一张。')
-      }
+      if (!await lastRecord(session)) return
       return send(session, [
         '📋 可用的调整指令',
         '• pjsk.调整.文本 <文本内容>',
@@ -307,7 +318,7 @@ export function apply(ctx: Context, config: Config) {
   // 字号与行距：同一条指令，方向作参数
   for (const name of ['字号', '行距'] as const) {
     const { field, steps, hint } = ADJUSTMENTS[name]
-    cmd.subcommand(`.调整.${name} <direction:string>`, `${name}变大或变小`)
+    cmd.subcommand(`.调整.${name} <direction:string>`, `增减${name}`)
       .usage(`参数为 ${hint}。`)
       .example(`pjsk.调整.${name} 大`)
       .action(async ({ session }, direction) => {

@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-pjsk-pptr",
   "description": "Koishi Project SEKAI 表情图生成插件，支持角色选择与图片调整。",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [

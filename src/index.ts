@@ -1,3 +1,4 @@
+import { usePresentation, promptInput } from './ux'
 import { Context, h, Random, Session } from 'koishi'
 import {} from 'koishi-plugin-puppeteer'
 import { Character, CHARACTERS, listImage, NAMES, OVERVIEWS, resolveName } from './characters'
@@ -89,6 +90,7 @@ const hasChinese = (text: string) => /[一-龥]/.test(text)
 const countLetters = (text: string) => (text.match(/[a-zA-Z]/g) ?? []).length
 
 export function apply(ctx: Context, config: Config) {
+  const presentation = usePresentation(ctx, 'pjsk')
   ctx.model.extend('pjsk', {
     id: 'unsigned',
     userId: 'string',
@@ -113,7 +115,7 @@ export function apply(ctx: Context, config: Config) {
       message = [h.at(session.userId), ' ~\n', message]
     }
     const [messageId] = await session.send(message)
-    if (!config.retractDelay || !messageId) return
+    if (presentation.textOnly(session) || !config.retractDelay || !messageId) return
     const previous = lastMessage.get(session.channelId)
     if (previous) {
       const passed = Date.now() - previous.timestamp
@@ -131,11 +133,13 @@ export function apply(ctx: Context, config: Config) {
 
   /** 列表图是随包发布的素材，文件不在时不发空图，回一句说明。 */
   async function sendListImage(session: Session, name: string) {
+    const text = Object.entries(CHARACTERS).map(([id, item]) => `${id}. ${item.name}`).join('\n')
+    if (presentation.textOnly(session)) return send(session, h.text(text))
     const image = listImage(name)
     if (!image) {
       return send(session, '❌ 表情包列表没有加载出来\n素材没有随插件装上，重装插件后再试。')
     }
-    return send(session, h.image(image, 'image/jpeg'))
+    return send(session, presentation.present(session, h.image(image, 'image/jpeg'), h.text(text)))
   }
 
   // --- 自适应排版 ---
@@ -199,6 +203,8 @@ export function apply(ctx: Context, config: Config) {
   async function render(session: Session, characterId: number, sticker: Sticker, adaptive: boolean) {
     const final = adaptive && config.isTextSizeAdaptationEnabled ? adapt(sticker) : sticker
     await remember(session, characterId, final)
+    const description = `角色：${CHARACTERS[characterId]?.name ?? characterId}\n${final.text}`
+    if (presentation.textOnly(session)) return send(session, h.text(description))
     let buffer: Uint8Array | null = null
     try {
       buffer = await draw(final)
@@ -215,7 +221,7 @@ export function apply(ctx: Context, config: Config) {
         '详细原因见后台日志，稍后重发即可。',
       ].join('\n'))
     }
-    await send(session, h.image(buffer, 'image/png'))
+    await send(session, presentation.present(session, h.image(buffer, 'image/png'), h.text(description)))
     if (config.shouldSendSuccessMessageAfterDrawingEmoji) {
       await send(session, '✅ 表情包绘制完成\n发送「pjsk.调整」接着微调，或发送「pjsk.列表」换一张。')
     }
@@ -286,7 +292,7 @@ export function apply(ctx: Context, config: Config) {
       await sendListImage(session, OVERVIEWS[1])
       if (!config.shouldSendDrawingGuideText) return
       await send(session, '💡 发送角色序号（如 10）或角色名（如 Emu）展开，或发送「取消」。')
-      const reply = await session.prompt()
+      const reply = await promptInput(session, '继续当前操作。')
       if (!reply) return send(session, '⏳ 没有等到角色，这次先作罢。')
       if (reply.trim() === '取消') return send(session, '✅ 已取消。')
       const character = resolveName(reply)
@@ -419,7 +425,7 @@ export function apply(ctx: Context, config: Config) {
   async function promptForSticker(session: Session) {
     if (!config.shouldSendDrawingGuideText) return
     await send(session, '💡 按「表情包序号 文本内容」发送即可，或发送「取消」。例：6 你好呀')
-    const input = await session.prompt()
+    const input = await promptInput(session, '继续当前操作。')
     if (!input) return send(session, '⏳ 没有等到内容，这次先作罢。')
     const text = input.trim()
     if (text === '取消') return send(session, '✅ 已取消。')

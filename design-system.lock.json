@@ -1,0 +1,10 @@
+{
+  "version": "2026-09-26",
+  "source": "koishi-plugin-markdown-to-image-service",
+  "materialColorUtilities": "0.4.0",
+  "files": {
+    "src/ux.ts": "e3f92898a93beb603fdf0190514a298928ce591a38c647d7e33e29b89009c6b7",
+    "DESIGN_SYSTEM.md": "0c7af4649f78c27446ffb7c4326ca85fe06fcebc8e1f3d955ba27bed4c4c37f7",
+    "scripts/check-design-system.mjs": "5d8c8ee8df6ed52d9589f120d2c95db58f1b61475115dc945155405cebed99ef"
+  }
+}

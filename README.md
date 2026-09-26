@@ -1,6 +1,6 @@
 # Project SEKAI 表情包
 
-Koishi 插件，根据角色和文本绘制 Project SEKAI 风格表情图。
+Koishi 插件，根据角色和文本绘制 Project SEKAI 风格表情包。
 
 ## 安装
 
@@ -14,7 +14,7 @@ yarn add koishi-plugin-pjsk-pptr
 
 | 指令 | 说明 |
 | --- | --- |
-| `pjsk.绘制 <文本>` | 绘制表情图；`/` 表示换行 |
+| `pjsk.绘制 <文本>` | 绘制表情包；`/` 表示换行 |
 | `pjsk.列表 [角色]` | 查看角色或该角色的全部表情 |
 | `pjsk.调整` | 微调上一张图片 |
 | `pjsk.调整.文本 <内容>` | 修改文本 |

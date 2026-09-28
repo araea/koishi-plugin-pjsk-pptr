@@ -1,6 +1,6 @@
 {
   "name": "koishi-plugin-pjsk-pptr",
-  "description": "Koishi 插件 · Project SEKAI 表情包。",
+  "description": "Koishi 插件：用 Project SEKAI 角色立绘生成可微调的自定义表情包。",
   "version": "2.2.0",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",

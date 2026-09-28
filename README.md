@@ -1,6 +1,6 @@
 # Project SEKAI 表情包
 
-Koishi 插件，根据角色和文本绘制 Project SEKAI 风格表情包。
+Koishi 插件 · Project SEKAI 表情包
 
 ## 安装
 

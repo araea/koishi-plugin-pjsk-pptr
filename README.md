@@ -2,15 +2,16 @@
 
 Koishi 插件：用 Project SEKAI 角色立绘生成可微调的自定义表情包
 
-[![GitHub](https://img.shields.io/badge/GitHub-仓库-181717)](https://github.com/araea/koishi-plugin-pjsk-pptr) [![npm](https://img.shields.io/badge/npm-包-CB3837)](https://www.npmjs.com/package/koishi-plugin-pjsk-pptr)
+[![GitHub](https://img.shields.io/badge/GitHub-araea%2Fkoishi--plugin--pjsk--pptr-181717?logo=github&logoColor=white)](https://github.com/araea/koishi-plugin-pjsk-pptr)
+[![npm](https://img.shields.io/npm/v/koishi-plugin-pjsk-pptr?logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/koishi-plugin-pjsk-pptr)
 
 ## 安装
 
 ```sh
-yarn add koishi-plugin-pjsk-pptr
+npm i koishi-plugin-pjsk-pptr
 ```
 
-需要 `puppeteer` 与 `database` 服务。puppeteer 服务依赖 Chromium，需在本机安装可被 puppeteer 调用的 Chromium。
+启用插件，并安装 `puppeteer` 与 `database` 服务。`puppeteer` 依赖 Chromium，需在本机安装可被其调用的 Chromium。
 
 ## 快速使用
 
@@ -26,9 +27,7 @@ yarn add koishi-plugin-pjsk-pptr
 | `pjsk.调整.曲线 <开/关>` | 开关文本曲线 |
 | `pjsk.调整.角色 [ID]` | 更换角色，`-r` 随机 |
 
-`pjsk.绘制` 选项：`-n <ID>` 指定表情（缺省随机），`-x` / `-y` 调整位置，`-r` 旋转，`-s` 字号，`-l` 行距，`-c` 曲线文本。
-
-每人最近一次绘制的参数会保存，供 `pjsk.调整.*` 增量修改。
+`pjsk.绘制` 选项：`-n <ID>` 指定表情（缺省随机），`-x` / `-y` 调整位置，`-r` 旋转，`-s` 字号，`-l` 行距，`-c` 曲线文本。每人最近一次绘制的参数会保存，供 `pjsk.调整.*` 增量修改。
 
 ## 配置
 
@@ -43,3 +42,9 @@ yarn add koishi-plugin-pjsk-pptr
 ## 限制 / 风险
 
 图片由无头浏览器渲染。Chromium 不可用或渲染失败时，不返回图片，仅回显表情包的文字参数。
+
+## 链接
+
+- [设计系统](DESIGN_SYSTEM.md)
+- [更新日志](CHANGELOG.md)
+- [MIT](LICENSE-MIT) / [Apache-2.0](LICENSE-APACHE)

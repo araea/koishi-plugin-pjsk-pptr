@@ -43,8 +43,7 @@ npm i koishi-plugin-pjsk-pptr
 
 图片由无头浏览器渲染。Chromium 不可用或渲染失败时，不返回图片，仅回显表情包的文字参数。
 
-## 链接
+## 必要链接
 
 - [设计系统](DESIGN_SYSTEM.md)
-- [更新日志](CHANGELOG.md)
 - [MIT](LICENSE-MIT) / [Apache-2.0](LICENSE-APACHE)

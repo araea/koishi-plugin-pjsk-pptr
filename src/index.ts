@@ -4,6 +4,7 @@ import {} from 'koishi-plugin-puppeteer'
 import { Character, CHARACTERS, listImage, NAMES, OVERVIEWS, resolveName } from './characters'
 import { Config } from './config'
 import { createRenderer, Sticker } from './draw'
+import { helpOf } from './help'
 
 export { Config }
 export const name = 'pjsk-pptr'
@@ -17,6 +18,7 @@ export const usage = `## 使用
 
 | 指令 | 说明 |
 | --- | --- |
+| \`pjsk\` | 查看指令列表 |
 | \`pjsk.绘制 <文本>\` | 绘制表情包 |
 | \`pjsk.列表 [角色]\` | 按角色分类；带上角色则展开它的全部表情 |
 | \`pjsk.列表 -a\` | 一次列出全部表情包 |
@@ -264,8 +266,10 @@ export function apply(ctx: Context, config: Config) {
   // --- 指令 ---
 
   const cmd = ctx.command('pjsk', 'Project SEKAI 表情包生成')
+    .userFields(['authority'])
     .action(async ({ session }) => {
-      await session.execute('help pjsk')
+      const { title, entries } = await helpOf(session, 'pjsk', ['列表', '绘制', '调整'].map((name) => `pjsk.${name}`))
+      await send(session, [`📋 ${title}`, ...entries.map(({ name, description }) => `${name} · ${description}`), '发送「pjsk.列表」挑表情，「pjsk.绘制 -n 6 你好呀」生成。'].join('\n'))
     })
 
   cmd.subcommand('.列表 [character:string]', '查看表情包列表')
